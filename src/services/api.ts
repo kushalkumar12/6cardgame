@@ -64,4 +64,10 @@ export const api = {
     const res = await fetch(`${API_BASE}/scoreboard`);
     return res.json();
   },
+
+  async getOnlinePlayers(excludeUserId?: string): Promise<{ id: string; username: string; avatar: string }[]> {
+    const res = await fetch(`${API_BASE}/online-players${excludeUserId ? `?exclude=${encodeURIComponent(excludeUserId)}` : ''}`);
+    return res.json();
+  },
 };
+

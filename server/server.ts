@@ -302,11 +302,126 @@ interface Room {
 }
 
 const rooms: Record<string, Room> = {};
-const onlineSockets: Record<string, string> = {}; // userId -> socketId
+
+// Robust multi-socket tracking per user
+// normalized userId (uppercase, no #) -> Set of active socket IDs
+const userSockets = new Map<string, Set<string>>();
+// socketId -> user metadata
+const socketToUser = new Map<string, { userId: string; username: string; avatar: string }>();
+
+function normalizeId(idOrName: string): string {
+  return idOrName.trim().replace(/^#/, '').toUpperCase();
+}
+
+/**
+ * Intelligently finds a user in DB or active sockets by ID, normalized ID, or username.
+ */
+function findTargetUserAndSockets(query: string): {
+  foundUser: { id: string; username: string; avatar: string } | null;
+  socketIds: string[];
+} {
+  const qClean = query.trim().replace(/^#/, '');
+  const qUpper = qClean.toUpperCase();
+  const qLower = qClean.toLowerCase();
+
+  // 1. Check DB users
+  let targetUser: UserRecord | undefined = undefined;
+
+  // Exact ID match
+  targetUser = Object.values(db.users).find((u) => u.id.toUpperCase() === qUpper);
+
+  // Match with 'P-' added or removed
+  if (!targetUser) {
+    if (!qUpper.startsWith('P-')) {
+      targetUser = Object.values(db.users).find((u) => u.id.toUpperCase() === `P-${qUpper}`);
+    } else {
+      targetUser = Object.values(db.users).find((u) => u.id.toUpperCase().replace(/^P-/, '') === qUpper.replace(/^P-/, ''));
+    }
+  }
+
+  // Match by username (case-insensitive)
+  if (!targetUser) {
+    targetUser = Object.values(db.users).find((u) => u.username.toLowerCase() === qLower);
+  }
+
+  // Partial username match if unique
+  if (!targetUser) {
+    const matches = Object.values(db.users).filter((u) => u.username.toLowerCase().includes(qLower));
+    if (matches.length === 1) {
+      targetUser = matches[0];
+    }
+  }
+
+  // If found in DB, collect active socket IDs
+  if (targetUser) {
+    const sids = Array.from(userSockets.get(normalizeId(targetUser.id)) || []);
+    return {
+      foundUser: { id: targetUser.id, username: targetUser.username, avatar: targetUser.avatar },
+      socketIds: sids,
+    };
+  }
+
+  // 2. Check active connected sockets directly by ID or username
+  for (const [sid, meta] of socketToUser.entries()) {
+    const userNorm = normalizeId(meta.userId);
+    const idMatches =
+      userNorm === qUpper ||
+      userNorm === `P-${qUpper}` ||
+      userNorm.replace(/^P-/, '') === qUpper.replace(/^P-/, '');
+    const nameMatches =
+      meta.username.toLowerCase() === qLower ||
+      meta.username.toLowerCase().includes(qLower);
+
+    if (idMatches || nameMatches) {
+      const sids = Array.from(userSockets.get(userNorm) || [sid]);
+      return {
+        foundUser: { id: meta.userId, username: meta.username, avatar: meta.avatar },
+        socketIds: sids,
+      };
+    }
+  }
+
+  return { foundUser: null, socketIds: [] };
+}
+
+function getOnlineUsersList(excludeUserId?: string): { id: string; username: string; avatar: string }[] {
+  const result: { id: string; username: string; avatar: string }[] = [];
+  const seenIds = new Set<string>();
+
+  for (const [normId, sids] of userSockets.entries()) {
+    if (sids.size === 0) continue;
+    if (excludeUserId && normId === normalizeId(excludeUserId)) continue;
+
+    // Look up in DB first
+    const dbUser = Object.values(db.users).find((u) => normalizeId(u.id) === normId);
+    if (dbUser) {
+      if (!seenIds.has(dbUser.id)) {
+        seenIds.add(dbUser.id);
+        result.push({ id: dbUser.id, username: dbUser.username, avatar: dbUser.avatar });
+      }
+    } else {
+      const firstSid = Array.from(sids)[0];
+      const meta = firstSid ? socketToUser.get(firstSid) : null;
+      if (meta && !seenIds.has(meta.userId)) {
+        seenIds.add(meta.userId);
+        result.push({ id: meta.userId, username: meta.username, avatar: meta.avatar });
+      }
+    }
+  }
+
+  return result;
+}
 
 function isUserOnline(userId: string): boolean {
-  return Boolean(onlineSockets[userId]);
+  const sids = userSockets.get(normalizeId(userId));
+  return Boolean(sids && sids.size > 0);
 }
+
+// REST API for online players list
+app.get('/api/online-players', (req, res) => {
+  const exclude = req.query.exclude as string | undefined;
+  res.json(getOnlineUsersList(exclude));
+});
 
 /**
  * Sanitizes game state for a specific client socket so opponents' hidden cards
@@ -336,10 +451,43 @@ io.on('connection', (socket: Socket) => {
   let currentUserId: string | null = null;
   let currentRoomCode: string | null = null;
 
-  socket.on('register_user', (userId: string) => {
+  // Register user with robust multi-socket support
+  socket.on('register_user', (payload: any) => {
+    const userId = typeof payload === 'string' ? payload : payload?.userId;
+    const username = typeof payload === 'object' ? payload?.username : undefined;
+    const avatar = typeof payload === 'object' ? payload?.avatar : undefined;
+
+    if (!userId) return;
+
     currentUserId = userId;
-    onlineSockets[userId] = socket.id;
+    const normId = normalizeId(userId);
+
+    if (!userSockets.has(normId)) {
+      userSockets.set(normId, new Set());
+    }
+    userSockets.get(normId)!.add(socket.id);
+
+    // Save metadata
+    const userMeta = {
+      userId,
+      username: username || db.users[userId]?.username || `Player_${userId}`,
+      avatar: avatar || db.users[userId]?.avatar || '🃏',
+    };
+    socketToUser.set(socket.id, userMeta);
+
+    // Broadcast presence update and full online list to all connected clients
     io.emit('user_presence_change', { userId, online: true });
+    io.emit('online_players_update', getOnlineUsersList());
+  });
+
+  // Request online players list
+  socket.on('get_online_players', (_data: any, callback?: Function) => {
+    const list = getOnlineUsersList(currentUserId || undefined);
+    if (typeof callback === 'function') {
+      callback(list);
+    } else {
+      socket.emit('online_players_update', list);
+    }
   });
 
   // Create room
@@ -421,20 +569,43 @@ io.on('connection', (socket: Socket) => {
     }
   });
 
-  // Invite player by their Player ID (for Mode 3)
-  socket.on('invite_player', ({ roomCode, targetPlayerId, fromName }: any, callback: Function) => {
-    const targetSocketId = onlineSockets[targetPlayerId];
-    if (!targetSocketId) {
-      return callback({ success: false, error: 'Player is currently offline' });
+  // Invite player by their Player ID or Username (Intelligent matching)
+  socket.on('invite_player', ({ roomCode, targetPlayerId, fromName, fromUserId }: any, callback: Function) => {
+    if (!targetPlayerId || !targetPlayerId.trim()) {
+      return callback({ success: false, error: 'Please enter a valid Player ID or username' });
     }
 
-    io.to(targetSocketId).emit('received_invitation', {
-      roomCode,
-      fromName,
-      timestamp: Date.now(),
-    });
+    const { foundUser, socketIds } = findTargetUserAndSockets(targetPlayerId);
 
-    callback({ success: true });
+    if (!foundUser) {
+      return callback({
+        success: false,
+        error: `Player "${targetPlayerId}" was not found. Please check the ID or username.`,
+      });
+    }
+
+    if (socketIds.length === 0) {
+      return callback({
+        success: false,
+        error: `${foundUser.username} (${foundUser.id}) is currently offline.`,
+      });
+    }
+
+    // Send invitation to all connected sockets of that user!
+    for (const sid of socketIds) {
+      io.to(sid).emit('received_invitation', {
+        roomCode,
+        fromName: fromName || 'A Player',
+        fromUserId: fromUserId || currentUserId || '',
+        timestamp: Date.now(),
+      });
+    }
+
+    callback({
+      success: true,
+      targetName: foundUser.username,
+      targetId: foundUser.id,
+    });
   });
 
   // Start game from lobby
@@ -554,9 +725,19 @@ io.on('connection', (socket: Socket) => {
   });
 
   socket.on('disconnect', () => {
+    socketToUser.delete(socket.id);
+
     if (currentUserId) {
-      delete onlineSockets[currentUserId];
-      io.emit('user_presence_change', { userId: currentUserId, online: false });
+      const normId = normalizeId(currentUserId);
+      const sids = userSockets.get(normId);
+      if (sids) {
+        sids.delete(socket.id);
+        if (sids.size === 0) {
+          userSockets.delete(normId);
+          io.emit('user_presence_change', { userId: currentUserId, online: false });
+        }
+      }
+      io.emit('online_players_update', getOnlineUsersList());
     }
 
     if (currentRoomCode && rooms[currentRoomCode]) {

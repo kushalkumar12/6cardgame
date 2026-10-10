@@ -149,6 +149,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
             </svg>
             <span>Sign in with Google</span>
           </button>
+
+          <button
+            type="button"
+            className="secondary-ghost-btn"
+            style={{
+              padding: '8px 12px',
+              fontSize: '0.82rem',
+              color: 'var(--text-muted)',
+              border: '1px dashed rgba(255, 255, 255, 0.2)',
+            }}
+            onClick={async () => {
+              setLoading(true);
+              try {
+                const randomNum = Math.floor(1000 + Math.random() * 9000);
+                const res = await api.login({
+                  username: `Player_${randomNum}`,
+                  authProvider: 'guest',
+                });
+                if (res.success) onSuccess(res.user);
+              } finally {
+                setLoading(false);
+              }
+            }}
+          >
+            🎲 Generate New Player Profile (For Tab 2 Test)
+          </button>
         </div>
       </div>
     </div>

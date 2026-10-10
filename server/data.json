@@ -67,6 +67,40 @@
       },
       "friendIds": [],
       "createdAt": 1791646659063
+    },
+    "P-7421": {
+      "id": "P-7421",
+      "username": "Nikhil",
+      "avatar": "👑",
+      "authProvider": "guest",
+      "referralCode": "REF-T0JU",
+      "referralCount": 0,
+      "chips": 500,
+      "stats": {
+        "gamesPlayed": 0,
+        "gamesWon": 0,
+        "bestScore": 999,
+        "zeroCardWins": 0
+      },
+      "friendIds": [],
+      "createdAt": 1791647302650
+    },
+    "P-5568": {
+      "id": "P-5568",
+      "username": "Teja",
+      "avatar": "🔥",
+      "authProvider": "guest",
+      "referralCode": "REF-RMJD",
+      "referralCount": 0,
+      "chips": 500,
+      "stats": {
+        "gamesPlayed": 0,
+        "gamesWon": 0,
+        "bestScore": 999,
+        "zeroCardWins": 0
+      },
+      "friendIds": [],
+      "createdAt": 1791649008733
     }
   }
 }

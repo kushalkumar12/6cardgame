@@ -27,19 +27,26 @@ import type { GamePlayMode } from './components/ModeSelect';
 import { LobbyRoom } from './components/LobbyRoom';
 import { InvitationToast } from './components/InvitationToast';
 
+const USER_SESSION_KEY = 'six_cards_user_session_v1';
 const USER_STORAGE_KEY = 'six_cards_user_profile_v1';
 const LOCAL_STORAGE_KEY = 'six_cards_game_state_v1';
 
 export const App: React.FC = () => {
-  // User Profile State
+  // User Profile State (checks sessionStorage first so multiple tabs can test independently)
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
     try {
+      const session = sessionStorage.getItem(USER_SESSION_KEY);
+      if (session) return JSON.parse(session);
       const saved = localStorage.getItem(USER_STORAGE_KEY);
       return saved ? JSON.parse(saved) : null;
     } catch {
       return null;
     }
   });
+
+  // Online players list across server
+  const [onlinePlayers, setOnlinePlayers] = useState<{ id: string; username: string; avatar: string }[]>([]);
+
 
   // Network info (LAN WiFi URL)
   const [networkInfo, setNetworkInfo] = useState<NetworkInfo | null>(null);
@@ -96,11 +103,34 @@ export const App: React.FC = () => {
     }
   }, [engine, activeRoom]);
 
-  // Fetch LAN info and setup sockets on mount
+  const currentUserRef = useRef<UserProfile | null>(currentUser);
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+  }, [currentUser]);
+
+  // Fetch LAN info, online players, and setup sockets
   useEffect(() => {
     api.getNetworkInfo().then(setNetworkInfo).catch(() => {});
+    api.getOnlinePlayers().then(setOnlinePlayers).catch(() => {});
 
-    socket.connect();
+    const registerSocket = () => {
+      if (currentUserRef.current) {
+        socket.emit('register_user', {
+          userId: currentUserRef.current.id,
+          username: currentUserRef.current.username,
+          avatar: currentUserRef.current.avatar,
+        });
+      }
+      socket.emit('get_online_players');
+    };
+
+    socket.on('connect', registerSocket);
+
+    socket.on('online_players_update', (list: any[]) => {
+      if (Array.isArray(list)) {
+        setOnlinePlayers(list);
+      }
+    });
 
     socket.on('received_invitation', (invite: any) => {
       setIncomingInvite(invite);
@@ -112,7 +142,7 @@ export const App: React.FC = () => {
           ? {
               ...prev,
               players: room.players,
-              isHost: room.hostId === currentUser?.id,
+              isHost: room.hostId === currentUserRef.current?.id,
             }
           : null
       );
@@ -127,20 +157,37 @@ export const App: React.FC = () => {
       setGameState(state);
     });
 
+    if (!socket.connected) {
+      socket.connect();
+    } else {
+      registerSocket();
+    }
+
     return () => {
+      socket.off('connect', registerSocket);
+      socket.off('online_players_update');
       socket.off('received_invitation');
       socket.off('room_updated');
       socket.off('game_started');
       socket.off('room_state_update');
     };
-  }, [currentUser]);
+  }, []);
 
-  // Register user on socket when logged in
+  // Sync user state and register user on socket when logged in
   useEffect(() => {
     if (currentUser) {
-      socket.emit('register_user', currentUser.id);
+      sessionStorage.setItem(USER_SESSION_KEY, JSON.stringify(currentUser));
       localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(currentUser));
+      if (socket.connected) {
+        socket.emit('register_user', {
+          userId: currentUser.id,
+          username: currentUser.username,
+          avatar: currentUser.avatar,
+        });
+        socket.emit('get_online_players');
+      }
     } else {
+      sessionStorage.removeItem(USER_SESSION_KEY);
       localStorage.removeItem(USER_STORAGE_KEY);
     }
   }, [currentUser]);
@@ -330,9 +377,11 @@ export const App: React.FC = () => {
     });
   };
 
-  // Invite player by ID
-  const handleInvitePlayer = async (targetId: string): Promise<boolean> => {
-    if (!activeRoom || !currentUser) return false;
+  // Invite player by ID or Username
+  const handleInvitePlayer = async (targetId: string): Promise<{ success: boolean; message?: string }> => {
+    if (!activeRoom || !currentUser) {
+      return { success: false, message: 'Room or user session is not ready.' };
+    }
     return new Promise((resolve) => {
       socket.emit(
         'invite_player',
@@ -340,9 +389,20 @@ export const App: React.FC = () => {
           roomCode: activeRoom.roomCode,
           targetPlayerId: targetId,
           fromName: currentUser.username,
+          fromUserId: currentUser.id,
         },
         (res: any) => {
-          resolve(Boolean(res.success));
+          if (res?.success) {
+            resolve({
+              success: true,
+              message: `Invite sent to ${res.targetName || targetId} (${res.targetId || targetId})!`,
+            });
+          } else {
+            resolve({
+              success: false,
+              message: res?.error || 'Failed to send invite (player may be offline).',
+            });
+          }
         }
       );
     });
@@ -527,6 +587,7 @@ export const App: React.FC = () => {
             isHost={activeRoom.isHost}
             myUserId={currentUser?.id || ''}
             players={activeRoom.players}
+            onlinePlayers={onlinePlayers}
             networkInfo={networkInfo}
             onToggleReady={handleToggleReady}
             onStartGame={handleStartRoomGame}

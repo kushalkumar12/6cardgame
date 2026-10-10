@@ -7,11 +7,12 @@ interface LobbyRoomProps {
   isHost: boolean;
   myUserId: string;
   players: RoomPlayerInfo[];
+  onlinePlayers?: { id: string; username: string; avatar: string }[];
   networkInfo: NetworkInfo | null;
   onToggleReady: () => void;
   onStartGame: () => void;
   onLeaveRoom: () => void;
-  onInvitePlayerId: (targetPlayerId: string) => Promise<boolean>;
+  onInvitePlayerId: (targetPlayerId: string) => Promise<{ success: boolean; message?: string }>;
 }
 
 export const LobbyRoom: React.FC<LobbyRoomProps> = ({
@@ -20,6 +21,7 @@ export const LobbyRoom: React.FC<LobbyRoomProps> = ({
   isHost,
   myUserId,
   players,
+  onlinePlayers = [],
   networkInfo,
   onToggleReady,
   onStartGame,
@@ -27,22 +29,41 @@ export const LobbyRoom: React.FC<LobbyRoomProps> = ({
   onInvitePlayerId,
 }) => {
   const [inviteInput, setInviteInput] = useState('');
-  const [inviteStatus, setInviteStatus] = useState('');
+  const [inviteStatus, setInviteStatus] = useState<{ text: string; isError: boolean } | null>(null);
+  const [invitingId, setInvitingId] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState(false);
 
   const me = players.find((p) => p.userId === myUserId);
   const allReady = players.length >= 2 && players.every((p) => p.ready);
 
-  const handleInvite = async () => {
-    if (!inviteInput.trim()) return;
-    setInviteStatus('Sending invite...');
-    const ok = await onInvitePlayerId(inviteInput.trim());
-    if (ok) {
-      setInviteStatus(`Invitation sent to ${inviteInput.trim()}!`);
-      setInviteInput('');
+  // Filter available online players (exclude players already in lobby and self)
+  const existingUserIds = new Set(players.map((p) => p.userId.toUpperCase()));
+  existingUserIds.add(myUserId.toUpperCase());
+  const inviteableOnline = onlinePlayers.filter(
+    (op) => !existingUserIds.has(op.id.toUpperCase())
+  );
+
+  const handleSendInvite = async (targetId: string) => {
+    if (!targetId.trim()) return;
+    setInvitingId(targetId);
+    setInviteStatus({ text: `Inviting ${targetId}...`, isError: false });
+
+    const res = await onInvitePlayerId(targetId.trim());
+    if (res.success) {
+      setInviteStatus({
+        text: res.message || `Invitation sent to ${targetId}!`,
+        isError: false,
+      });
+      if (inviteInput.trim().toUpperCase() === targetId.trim().toUpperCase()) {
+        setInviteInput('');
+      }
     } else {
-      setInviteStatus('Failed to send invite (player may be offline).');
+      setInviteStatus({
+        text: res.message || 'Failed to send invitation.',
+        isError: true,
+      });
     }
+    setInvitingId(null);
   };
 
   const copyRoomCode = () => {
@@ -57,7 +78,12 @@ export const LobbyRoom: React.FC<LobbyRoomProps> = ({
         <span className="round-pill">
           {mode === 'lan' ? '📶 Same WiFi / Localhost LAN' : '🌐 Online Team Lobby'}
         </span>
-        <button className="secondary-ghost-btn" onClick={onLeaveRoom} style={{ padding: '6px 12px', fontSize: '0.82rem' }}>
+        <button
+          type="button"
+          className="secondary-ghost-btn"
+          onClick={onLeaveRoom}
+          style={{ padding: '6px 14px', fontSize: '0.82rem' }}
+        >
           Leave Room
         </button>
       </div>
@@ -65,47 +91,137 @@ export const LobbyRoom: React.FC<LobbyRoomProps> = ({
       <div style={{ background: 'rgba(0,0,0,0.3)', padding: 16, borderRadius: 12, marginBottom: 20 }}>
         <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Room Code:</span>
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, margin: '6px 0' }}>
-          <span style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--gold-light)', letterSpacing: '0.1em' }}>
+          <span style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--gold-light)', letterSpacing: '0.12em' }}>
             {roomCode}
           </span>
-          <button className="secondary-ghost-btn" onClick={copyRoomCode}>
+          <button type="button" className="secondary-ghost-btn" onClick={copyRoomCode}>
             {copiedCode ? '✓ Copied' : '📋 Copy'}
           </button>
         </div>
 
         {mode === 'lan' && networkInfo && (
           <div style={{ marginTop: 8, fontSize: '0.84rem', color: '#a7f3d0' }}>
-            📱 On another phone/device on same WiFi, open: <code>{networkInfo.lanUrl}</code> and enter code <strong>{roomCode}</strong>.
+            📱 On another phone/device on same WiFi, open: <code>{networkInfo.lanUrl}</code> and enter code{' '}
+            <strong>{roomCode}</strong>.
           </div>
         )}
       </div>
 
-      {/* Online Team Search & Invite */}
-      <div style={{ background: 'rgba(255,255,255,0.04)', padding: 14, borderRadius: 10, marginBottom: 20, textAlign: 'left' }}>
+      {/* Manual Invite by ID or Username */}
+      <div
+        style={{
+          background: 'rgba(255,255,255,0.04)',
+          padding: 14,
+          borderRadius: 10,
+          marginBottom: 16,
+          textAlign: 'left',
+        }}
+      >
         <label style={{ fontSize: '0.84rem', color: 'var(--gold-light)', display: 'block', marginBottom: 6 }}>
-          Invite Player by Player ID (e.g. <code>#P-1001</code>)
+          Invite Player by Player ID (e.g. <code>#P-1002</code>) or Username
         </label>
         <div style={{ display: 'flex', gap: 8 }}>
           <input
             type="text"
             className="player-name-input"
             style={{ flex: 1 }}
-            placeholder="Enter Player ID (e.g. P-1001)"
+            placeholder="Enter Player ID (e.g. #P-1002 or 1002) or Name"
             value={inviteInput}
             onChange={(e) => setInviteInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleSendInvite(inviteInput);
+            }}
           />
-          <button className="primary-gold-btn" style={{ width: 'auto', padding: '8px 18px', fontSize: '0.9rem' }} onClick={handleInvite}>
-            Send Invite
+          <button
+            type="button"
+            className="primary-gold-btn"
+            style={{ width: 'auto', padding: '8px 18px', fontSize: '0.9rem' }}
+            disabled={!inviteInput.trim() || invitingId === inviteInput.trim()}
+            onClick={() => handleSendInvite(inviteInput)}
+          >
+            {invitingId === inviteInput.trim() ? 'Sending...' : 'Send Invite'}
           </button>
         </div>
+
         {inviteStatus && (
-          <div style={{ marginTop: 6, fontSize: '0.82rem', color: '#a7f3d0' }}>
-            {inviteStatus}
+          <div
+            style={{
+              marginTop: 8,
+              fontSize: '0.82rem',
+              color: inviteStatus.isError ? '#fda4af' : '#a7f3d0',
+              fontWeight: 500,
+            }}
+          >
+            {inviteStatus.isError ? '⚠️ ' : '✅ '}
+            {inviteStatus.text}
           </div>
         )}
       </div>
 
-      {/* Player List */}
+      {/* Online Players Quick-Invite List */}
+      {inviteableOnline.length > 0 && (
+        <div
+          style={{
+            background: 'rgba(16, 185, 129, 0.08)',
+            border: '1px solid rgba(16, 185, 129, 0.25)',
+            padding: 14,
+            borderRadius: 10,
+            marginBottom: 20,
+            textAlign: 'left',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#6ee7b7' }}>
+              🟢 Online Players Right Now ({inviteableOnline.length})
+            </span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>1-Click Invite</span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {inviteableOnline.map((op) => (
+              <div
+                key={op.id}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  background: 'rgba(0, 0, 0, 0.35)',
+                  padding: '8px 12px',
+                  borderRadius: 6,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: '1.2rem' }}>{op.avatar}</span>
+                  <div>
+                    <span style={{ fontWeight: 600, fontSize: '0.88rem', color: '#f3f4f6' }}>{op.username}</span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: 6 }}>
+                      ({op.id})
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="secondary-ghost-btn"
+                  style={{
+                    padding: '4px 12px',
+                    fontSize: '0.78rem',
+                    background: 'rgba(16, 185, 129, 0.2)',
+                    color: '#6ee7b7',
+                    borderColor: 'rgba(16, 185, 129, 0.4)',
+                  }}
+                  disabled={invitingId === op.id}
+                  onClick={() => handleSendInvite(op.id)}
+                >
+                  {invitingId === op.id ? 'Sending...' : '✉️ Invite'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Players in Current Room */}
       <h3 style={{ fontSize: '1rem', color: 'var(--gold-light)', textAlign: 'left', marginBottom: 12 }}>
         Lobby Players ({players.length} / 6)
       </h3>
@@ -126,7 +242,12 @@ export const LobbyRoom: React.FC<LobbyRoomProps> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: '1.4rem' }}>{p.avatar}</span>
               <div style={{ textAlign: 'left' }}>
-                <strong>{p.displayName}</strong> {p.isHost && <span style={{ color: 'var(--gold-light)', fontSize: '0.75rem' }}>(Host)</span>}
+                <strong>{p.displayName}</strong>{' '}
+                {p.isHost && (
+                  <span style={{ color: 'var(--gold-light)', fontSize: '0.75rem', fontWeight: 600 }}>
+                    (Host)
+                  </span>
+                )}
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>
                   ID: <code>{p.userId}</code>
                 </span>
@@ -140,9 +261,10 @@ export const LobbyRoom: React.FC<LobbyRoomProps> = ({
         ))}
       </div>
 
-      {/* Controls */}
-      <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+      {/* Action Controls */}
+      <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
         <button
+          type="button"
           className={`action-btn ${me?.ready ? 'action-btn-neutral' : 'action-btn-declare'}`}
           onClick={onToggleReady}
         >
@@ -151,12 +273,17 @@ export const LobbyRoom: React.FC<LobbyRoomProps> = ({
 
         {isHost && (
           <button
+            type="button"
             className="primary-gold-btn"
             style={{ width: 'auto', padding: '12px 28px' }}
             disabled={!allReady}
             onClick={onStartGame}
           >
-            {players.length < 2 ? 'Waiting for Players (Min 2)...' : 'Start Match!'}
+            {players.length < 2
+              ? 'Waiting for Players (Min 2)...'
+              : !allReady
+              ? 'Waiting for All Players to Ready Up...'
+              : 'Start Match! 🚀'}
           </button>
         )}
       </div>

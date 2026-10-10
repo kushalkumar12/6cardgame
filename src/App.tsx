@@ -555,22 +555,9 @@ export const App: React.FC = () => {
 
           {/* Center Arena */}
           <section className="table-center-arena" aria-label="Center Table Area">
-            {/* Draw Pile */}
-            <div className="deck-pile-slot">
-              <span className="deck-pile-label">Draw Pile</span>
-              <CardView
-                card={null}
-                isFaceUp={false}
-                label={`Draw pile with ${gameState.drawPile.length} cards remaining`}
-              />
-              <span className="pile-badge" id="draw-pile-count">
-                {gameState.drawPile.length} cards left
-              </span>
-            </div>
-
             {/* Turn Announcement Banner */}
             <div className="active-turn-banner">
-              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 Active Turn
               </span>
               <span className="turn-player-name">{activePlayer?.displayName}</span>
@@ -587,61 +574,76 @@ export const App: React.FC = () => {
               </span>
             </div>
 
-            {/* Drawn Card if active */}
-            {gameState.pendingDrawnCard && (
+            <div className="center-piles-cluster">
+              {/* Draw Pile */}
               <div className="deck-pile-slot">
-                <span className="deck-pile-label" style={{ color: 'var(--emerald)' }}>
-                  Drawn Card
-                </span>
+                <span className="deck-pile-label">Draw Pile</span>
                 <CardView
-                  card={gameState.pendingDrawnCard}
-                  isFaceUp
-                  label="Currently drawn card"
+                  card={null}
+                  isFaceUp={false}
+                  label={`Draw pile with ${gameState.drawPile.length} cards remaining`}
                 />
-                <span className="pile-badge">
-                  {gameState.pendingDrawnCard.pointValue} pts
+                <span className="pile-badge" id="draw-pile-count">
+                  {gameState.drawPile.length} cards
                 </span>
               </div>
-            )}
 
-            {/* Discard Pile */}
-            <div className="deck-pile-slot">
-              <span className="deck-pile-label">Discard Pile</span>
-              {topDiscard ? (
-                <CardView
-                  card={topDiscard}
-                  isFaceUp
-                  label={`Top discard: ${topDiscard.rank} of ${topDiscard.suit}`}
-                />
-              ) : (
-                <div
-                  className="card-frame"
-                  style={{
-                    border: '2px dashed rgba(255,255,255,0.15)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'var(--text-muted)',
-                    fontSize: '0.8rem',
-                  }}
-                >
-                  Empty
+              {/* Drawn Card if active */}
+              {gameState.pendingDrawnCard && (
+                <div className="deck-pile-slot">
+                  <span className="deck-pile-label" style={{ color: 'var(--emerald)' }}>
+                    Drawn Card
+                  </span>
+                  <CardView
+                    card={gameState.pendingDrawnCard}
+                    isFaceUp
+                    label="Currently drawn card"
+                  />
+                  <span className="pile-badge">
+                    {gameState.pendingDrawnCard.pointValue} pts
+                  </span>
                 </div>
               )}
-              <span className="pile-badge" id="discard-pile-info">
-                {topDiscard ? `${topDiscard.pointValue} pts (Top)` : '0 cards'}
-              </span>
-            </div>
 
-            {/* Eliminated Zone */}
-            <div className="eliminated-summary-slot" id="eliminated-count-box">
-              <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Eliminated
-              </span>
-              <span className="eliminated-count">
-                {gameState.eliminatedCards.length}
-              </span>
-              <span>Cards removed</span>
+              {/* Discard Pile */}
+              <div className="deck-pile-slot">
+                <span className="deck-pile-label">Discard Pile</span>
+                {topDiscard ? (
+                  <CardView
+                    card={topDiscard}
+                    isFaceUp
+                    label={`Top discard: ${topDiscard.rank} of ${topDiscard.suit}`}
+                  />
+                ) : (
+                  <div
+                    className="card-frame"
+                    style={{
+                      border: '2px dashed rgba(255,255,255,0.15)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--text-muted)',
+                      fontSize: '0.8rem',
+                    }}
+                  >
+                    Empty
+                  </div>
+                )}
+                <span className="pile-badge" id="discard-pile-info">
+                  {topDiscard ? `${topDiscard.pointValue} pts (Top)` : '0 cards'}
+                </span>
+              </div>
+
+              {/* Eliminated Zone */}
+              <div className="eliminated-summary-slot" id="eliminated-count-box">
+                <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Eliminated
+                </span>
+                <span className="eliminated-count">
+                  {gameState.eliminatedCards.length}
+                </span>
+                <span style={{ fontSize: '0.72rem' }}>Removed</span>
+              </div>
             </div>
           </section>
 

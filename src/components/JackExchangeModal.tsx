@@ -41,7 +41,7 @@ export const JackExchangeModal: React.FC<JackExchangeModalProps> = ({
           Exchange 1 card from your hand with 1 card from an opponent without looking at either card!
         </p>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', margin: '20px 0' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px', margin: '16px 0' }}>
           {/* Step 1: Select Own Card */}
           <div style={{ background: 'rgba(0,0,0,0.3)', padding: 16, borderRadius: '12px' }}>
             <h3 style={{ fontSize: '1rem', color: 'var(--gold-light)', marginBottom: 12 }}>

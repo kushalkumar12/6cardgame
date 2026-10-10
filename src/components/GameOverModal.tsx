@@ -71,48 +71,50 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
           All hidden hands are now revealed. Final scores are based on the sum of remaining card point values (Lowest wins):
         </p>
 
-        <table className="results-table">
-          <thead>
-            <tr>
-              <th>Player</th>
-              <th>Remaining Cards</th>
-              <th>Total Points</th>
-              <th>Result</th>
-            </tr>
-          </thead>
-          <tbody>
-            {scoreBoard.map(({ player, score, isWinner }) => (
-              <tr key={player.id} className={isWinner ? 'winner-row' : ''}>
-                <td>
-                  <strong>{player.displayName}</strong>
-                </td>
-                <td>
-                  {player.cards.length === 0 ? (
-                    <span style={{ color: '#a7f3d0', fontStyle: 'italic' }}>0 cards remaining</span>
-                  ) : (
-                    <div className="results-cards-cell">
-                      {player.cards.map((c) => (
-                        <CardView key={c.id} card={c} isFaceUp size="small" />
-                      ))}
-                    </div>
-                  )}
-                </td>
-                <td style={{ fontSize: '1.1rem', fontWeight: 700 }}>
-                  {endReason === 'ZERO_CARD_AUTOMATIC_VICTORY' && isWinner ? 0 : score} pts
-                </td>
-                <td>
-                  {isWinner ? (
-                    <span style={{ color: 'var(--gold-light)', fontWeight: 800 }}>
-                      {isTie ? 'TIED WINNER' : 'WINNER 🏆'}
-                    </span>
-                  ) : (
-                    <span style={{ color: 'var(--text-muted)' }}>-</span>
-                  )}
-                </td>
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', margin: '16px 0' }}>
+          <table className="results-table">
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th>Remaining Cards</th>
+                <th>Total Points</th>
+                <th>Result</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {scoreBoard.map(({ player, score, isWinner }) => (
+                <tr key={player.id} className={isWinner ? 'winner-row' : ''}>
+                  <td>
+                    <strong>{player.displayName}</strong>
+                  </td>
+                  <td>
+                    {player.cards.length === 0 ? (
+                      <span style={{ color: '#a7f3d0', fontStyle: 'italic' }}>0 cards remaining</span>
+                    ) : (
+                      <div className="results-cards-cell">
+                        {player.cards.map((c) => (
+                          <CardView key={c.id} card={c} isFaceUp size="small" />
+                        ))}
+                      </div>
+                    )}
+                  </td>
+                  <td style={{ fontSize: '1.1rem', fontWeight: 700 }}>
+                    {endReason === 'ZERO_CARD_AUTOMATIC_VICTORY' && isWinner ? 0 : score} pts
+                  </td>
+                  <td>
+                    {isWinner ? (
+                      <span style={{ color: 'var(--gold-light)', fontWeight: 800 }}>
+                        {isTie ? 'TIED WINNER' : 'WINNER 🏆'}
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)' }}>-</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
           <button className="primary-gold-btn" style={{ width: 'auto', padding: '14px 36px' }} onClick={onPlayAgain} id="play-again-btn">

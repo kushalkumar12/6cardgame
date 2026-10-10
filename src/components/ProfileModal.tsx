@@ -106,8 +106,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           </button>
         </div>
 
-        {/* Tab Navigation */}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
+        {/* Tab Navigation (Horizontally scrollable on mobile) */}
+        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', flexWrap: 'nowrap', paddingBottom: 6, marginBottom: 18, WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
           <button
             className={`header-btn ${activeTab === 'profile' ? 'active-tab' : ''}`}
             style={{ borderColor: activeTab === 'profile' ? 'var(--gold-primary)' : undefined }}
@@ -199,38 +199,40 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             <h3 style={{ fontSize: '1.1rem', color: 'var(--gold-light)', marginBottom: 12 }}>
               🏆 Global Scoreboard & Leaderboard
             </h3>
-            <table className="results-table">
-              <thead>
-                <tr>
-                  <th>Rank</th>
-                  <th>Player</th>
-                  <th>Player ID</th>
-                  <th>Wins</th>
-                  <th>Win Rate</th>
-                  <th>Chips</th>
-                </tr>
-              </thead>
-              <tbody>
-                {scoreboard.map((entry, idx) => {
-                  const entryWinRate = entry.stats.gamesPlayed > 0
-                    ? Math.round((entry.stats.gamesWon / entry.stats.gamesPlayed) * 100)
-                    : 0;
-                  return (
-                    <tr key={entry.id} className={entry.id === user.id ? 'winner-row' : ''}>
-                      <td>#{idx + 1}</td>
-                      <td>
-                        <span style={{ marginRight: 6 }}>{entry.avatar}</span>
-                        <strong>{entry.username}</strong>
-                      </td>
-                      <td><code>{entry.id}</code></td>
-                      <td>{entry.stats.gamesWon}</td>
-                      <td>{entryWinRate}%</td>
-                      <td style={{ color: 'var(--gold-light)' }}>🪙 {entry.chips}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+              <table className="results-table">
+                <thead>
+                  <tr>
+                    <th>Rank</th>
+                    <th>Player</th>
+                    <th>Player ID</th>
+                    <th>Wins</th>
+                    <th>Win Rate</th>
+                    <th>Chips</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {scoreboard.map((entry, idx) => {
+                    const entryWinRate = entry.stats.gamesPlayed > 0
+                      ? Math.round((entry.stats.gamesWon / entry.stats.gamesPlayed) * 100)
+                      : 0;
+                    return (
+                      <tr key={entry.id} className={entry.id === user.id ? 'winner-row' : ''}>
+                        <td>#{idx + 1}</td>
+                        <td>
+                          <span style={{ marginRight: 6 }}>{entry.avatar}</span>
+                          <strong>{entry.username}</strong>
+                        </td>
+                        <td><code>{entry.id}</code></td>
+                        <td>{entry.stats.gamesWon}</td>
+                        <td>{entryWinRate}%</td>
+                        <td style={{ color: 'var(--gold-light)' }}>🪙 {entry.chips}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 

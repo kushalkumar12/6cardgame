@@ -1,0 +1,72 @@
+{
+  "users": {
+    "P-1001": {
+      "id": "P-1001",
+      "username": "System Ace",
+      "avatar": "👑",
+      "authProvider": "local",
+      "referralCode": "ACE100",
+      "referralCount": 4,
+      "chips": 1500,
+      "stats": {
+        "gamesPlayed": 24,
+        "gamesWon": 16,
+        "bestScore": 2,
+        "zeroCardWins": 3
+      },
+      "friendIds": [],
+      "createdAt": 1791214336000
+    },
+    "P-1002": {
+      "id": "P-1002",
+      "username": "CardShark_99",
+      "avatar": "🦈",
+      "authProvider": "local",
+      "referralCode": "SHARK99",
+      "referralCount": 2,
+      "chips": 850,
+      "stats": {
+        "gamesPlayed": 18,
+        "gamesWon": 9,
+        "bestScore": 4,
+        "zeroCardWins": 1
+      },
+      "friendIds": [],
+      "createdAt": 1791387136000
+    },
+    "P-4988": {
+      "id": "P-4988",
+      "username": "Kushal",
+      "avatar": "🦁",
+      "authProvider": "guest",
+      "referralCode": "REF-SY1S",
+      "referralCount": 0,
+      "chips": 500,
+      "stats": {
+        "gamesPlayed": 0,
+        "gamesWon": 0,
+        "bestScore": 999,
+        "zeroCardWins": 0
+      },
+      "friendIds": [],
+      "createdAt": 1791646603900
+    },
+    "P-5616": {
+      "id": "P-5616",
+      "username": "Tester1",
+      "avatar": "🦁",
+      "authProvider": "guest",
+      "referralCode": "REF-U7AM",
+      "referralCount": 0,
+      "chips": 500,
+      "stats": {
+        "gamesPlayed": 0,
+        "gamesWon": 0,
+        "bestScore": 999,
+        "zeroCardWins": 0
+      },
+      "friendIds": [],
+      "createdAt": 1791646659063
+    }
+  }
+}

@@ -4,12 +4,42 @@ A high-stakes, responsive multiplayer card game for 2 to 6 players combining hid
 
 ---
 
+## 🎮 Game Modes
+
+1. **Mode 1: Play with System (AI Bot)**
+   - Practice and play 1-on-1 solo vs the intelligent **System AI Bot**.
+   - The AI maintains memory of its known cards and takes smart autonomous decisions (drawing, replacing, peeking with 7/8, exchanging with Jack, and eliminating matches).
+
+2. **Mode 2: Same WiFi / Localhost LAN Multiplayer**
+   - Connect multiple devices on the same WiFi network (or multiple tabs on localhost).
+   - Generates a **4-letter Room Code** and displays the host's local WiFi URL (e.g. `http://10.90.142.193:5173`).
+   - Each player views their own private screen on their own device with real-time WebSocket synchronization.
+
+3. **Mode 3: Online Team & Search Players**
+   - Form multiplayer teams and lobbies.
+   - Search players by their unique **Player ID** (e.g. `#P-1001`) or username.
+   - Send live game room invitations to friends and team members.
+
+---
+
+## 👤 User Profile & Social Features
+
+- **Profile & Scoreboard**: Displays Player ID, avatar, chips balance, games played, wins, win rate %, lowest score, and zero-card wins. Global leaderboard ranking.
+- **Friends System**: Search and add players by Player ID. See live online/offline presence and quick "Invite to Game" button.
+- **Refer & Earn**: Unique referral codes (`REF-XXXX`). Earn +200 chips when a friend uses your code; referred player receives +100 bonus chips.
+- **Authentication**: Guest / Direct Login with custom display name, plus a **Google Sign-In component ready for production deployment**.
+- **About & Logout**: Complete rules overview, version credits, and quick logout/account switching.
+
+---
+
 ## 🛠️ Tech Stack & Architecture
 
-- **Engine**: Pure TypeScript, deterministic, fully isolated state machine with injectable RNG.
 - **Frontend**: React 19 + TypeScript + Vite.
-- **Styling**: Vanilla CSS design system with luxurious dark casino aesthetics, glassmorphism, gold accents, and responsive layout.
-- **Testing**: Vitest automated unit and rule verification suite.
+- **Backend / Real-Time**: Node.js + Express + Socket.IO with automatic local WiFi IP discovery.
+- **Engine**: Pure TypeScript, deterministic, authoritative finite state machine with injectable RNG.
+- **AI**: Intelligent memory-mapped bot (`AIBot.ts`) with strategic turn execution.
+- **Styling**: Vanilla CSS design system with luxurious dark velvet casino aesthetics, glassmorphism, and gold accents.
+- **Testing**: Vitest automated suite (37 unit, integration, and API tests).
 - **Linter**: Oxlint.
 
 ---
@@ -21,23 +51,36 @@ A high-stakes, responsive multiplayer card game for 2 to 6 players combining hid
 npm install
 ```
 
-### 2. Run the Development Server
+### 2. Start the Backend Server (for LAN & Online Modes)
+```bash
+npm run server
+```
+The server runs on port 3001 and outputs your local WiFi network address:
+```
+=========================================
+ Six Cards Game Server running on:
+ Local:    http://localhost:3001
+ LAN/WiFi: http://<your-wifi-ip>:3001
+=========================================
+```
+
+### 3. Start the Vite Frontend
 ```bash
 npm run dev
 ```
-Open your browser at the displayed local URL (default: `http://localhost:5173`).
+Open your browser at `http://localhost:5173` (or `http://<your-wifi-ip>:5173` from any phone or laptop on the same WiFi).
 
-### 3. Run Automated Tests
+### 4. Run Automated Tests
 ```bash
 npm test
 ```
 
-### 4. Build for Production
+### 5. Build for Production
 ```bash
 npm run build
 ```
 
-### 5. Run Lint Check
+### 6. Run Lint Check
 ```bash
 npm run lint
 ```
@@ -48,24 +91,38 @@ npm run lint
 
 ```
 d:/JavaProjects/6CardGame/
-├── RULES_AND_ASSUMPTIONS.md      # Authoritative rules, interpretations & edge-cases
-├── package.json                  # Dependencies and scripts (test, build, lint, dev)
+├── RULES_AND_ASSUMPTIONS.md      # Authoritative rules & edge-case specifications
+├── package.json                  # Dependencies and scripts (dev, server, test, build, lint)
 ├── index.html                    # HTML entry point with typography & SEO
+├── server/
+│   ├── server.ts                 # Express + Socket.IO multiplayer, LAN IP, auth & rooms
+│   └── data.json                 # Persistent account records, stats & friends
 ├── src/
 │   ├── types/
 │   │   ├── card.ts               # Card, Rank, Suit types
-│   │   └── game.ts               # GameState, Player, Phase, ActionLog types
+│   │   ├── game.ts               # GameState, Player, Phase, ActionLog types
+│   │   └── user.ts               # UserProfile, Friends, Scoreboard, Network types
 │   ├── engine/
 │   │   ├── deck.ts               # Deck creation (52/104/156 cards) & shuffle
 │   │   ├── scoring.ts            # Exact point values & matching logic
 │   │   ├── gameEngine.ts         # Authoritative pure state machine
+│   │   ├── aiBot.ts              # System AI bot memory & strategic decisions
 │   │   └── __tests__/
-│   │       └── gameEngine.test.ts # Vitest suite covering all required rules
+│   │       ├── gameEngine.test.ts # Core engine rules & edge-cases test suite
+│   │       ├── aiBot.test.ts      # Mode 1 System AI bot test suite
+│   │       ├── integrationFlow.test.ts # Complete game flow test suite
+│   │       └── serverApi.test.ts  # Backend API & network test suite
+│   ├── services/
+│   │   └── api.ts                # REST API client & Socket.IO connector
 │   ├── components/
 │   │   ├── CardView.tsx          # Accessible, styled playing card component
 │   │   ├── PlayerMat.tsx         # Opponent hands & active player mat
-│   │   ├── Header.tsx            # Navigation, round info, rules & reset
-│   │   ├── ActionLog.tsx         # Public event history drawer
+│   │   ├── Header.tsx            # Navigation, round info, user profile trigger & reset
+│   │   ├── AuthModal.tsx         # Guest & Google Sign-In authentication modal
+│   │   ├── ProfileModal.tsx      # Profile, Scoreboard, Friends, Refer, About & Logout
+│   │   ├── ModeSelect.tsx        # Selection for System AI, Same WiFi LAN, and Online Team
+│   │   ├── LobbyRoom.tsx         # Room lobby with code, player list & ready status
+│   │   ├── InvitationToast.tsx   # Real-time incoming invitation popup
 │   │   ├── PassDeviceModal.tsx   # Privacy handoff overlay
 │   │   ├── InitialMemorizeModal.tsx # Setup 2-card reveal & memorization
 │   │   ├── RevealModal.tsx       # 7 (own) & 8 (opponent) peeking modal
@@ -74,9 +131,10 @@ d:/JavaProjects/6CardGame/
 │   │   ├── PenaltyModal.tsx      # Incorrect elimination penalty card display
 │   │   ├── DeclareVictoryModal.tsx # Declaration confirmation
 │   │   ├── GameOverModal.tsx     # Final results, all hands revealed & scores
-│   │   └── RulesModal.tsx        # In-game rules & scoring reference
+│   │   ├── RulesModal.tsx        # In-game rules & scoring reference
+│   │   └── ActionLog.tsx         # Public event history drawer
 │   ├── index.css                 # Master design system & CSS tokens
-│   ├── App.tsx                   # Top-level coordinator with localStorage sync
+│   ├── App.tsx                   # Top-level coordinator for all 3 modes & profile
 │   └── main.tsx                  # React DOM mount point
 ```
 

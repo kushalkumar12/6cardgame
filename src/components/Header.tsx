@@ -1,4 +1,5 @@
 import React from 'react';
+import type { UserProfile } from '../types/user';
 
 interface HeaderProps {
   roundNumber: number;
@@ -6,6 +7,8 @@ interface HeaderProps {
   onOpenRules: () => void;
   onRestartGame: () => void;
   isGameActive: boolean;
+  user: UserProfile | null;
+  onOpenProfile: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -14,6 +17,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenRules,
   onRestartGame,
   isGameActive,
+  user,
+  onOpenProfile,
 }) => {
   return (
     <header className="app-header">
@@ -33,6 +38,19 @@ export const Header: React.FC<HeaderProps> = ({
           📜 Rules
         </button>
 
+        {user && (
+          <button
+            className="header-btn"
+            style={{ borderColor: 'var(--gold-primary)', color: 'var(--gold-light)' }}
+            onClick={onOpenProfile}
+            id="profile-btn"
+          >
+            <span>{user.avatar}</span>
+            <strong>{user.username}</strong>
+            <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>({user.id})</span>
+          </button>
+        )}
+
         {isGameActive && (
           <button
             className="header-btn"
@@ -41,7 +59,7 @@ export const Header: React.FC<HeaderProps> = ({
             aria-label="Restart game"
             id="restart-game-btn"
           >
-            ↺ New Game
+            ↺ Leave Game
           </button>
         )}
       </div>

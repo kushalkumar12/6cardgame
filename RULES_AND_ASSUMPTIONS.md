@@ -173,3 +173,31 @@ If a player successfully eliminates all cards from their hand (hand size reaches
    - Local pass-the-device screen overlays protect hidden card values during local multiplayer.
 5. **State Persistence**:
    - The authoritative game state is persisted to `localStorage` after each action, enabling seamless recovery across browser refreshes while providing an explicit "New Game" reset action.
+
+---
+
+## 10. Game Modes & Multiplayer Architecture
+
+### 10.1 Mode 1: Play with System (AI Bot)
+- **Structure**: 1 human player ("original player") vs the System AI bot.
+- **AI Behavior**: The AI maintains an internal memory map of its own known cards and peeks.
+- **Turn Actions**: AI evaluates whether to eliminate matching known cards, declare victory when holding <= 8 points across known cards in Round 2+, or draw. On draw, it uses 7/8/Jack abilities intelligently or replaces high cards with low ones (<= 5 points).
+- **Pacing**: AI decisions include a simulated thought delay (700ms - 1000ms) with full transparent entries in the public action history log.
+
+### 10.2 Mode 2: Same WiFi / Localhost LAN Multiplayer
+- **Structure**: Real-time room-based multiplayer via Node.js + Express + Socket.IO.
+- **Localhost & Same WiFi Support**: The backend server automatically discovers the host machine's local WiFi IPv4 address (e.g. `http://10.90.142.193:5173`) and provides a 4-letter Room Code (e.g. `7K2X`).
+- **Privacy Enforcement**: Each player connects from their own browser tab, phone, or laptop. Opponent cards sent over the network have their rank, suit, and point values sanitized and masked so hidden values cannot be inspected in client memory or network traces.
+
+### 10.3 Mode 3: Online Multiplayer Team & Player Search
+- **Player Identification**: Each user account is assigned a unique Player ID (`#P-XXXX`).
+- **Player Search**: Players can search for other users by Player ID or username and send instant friend requests or live room game invitations.
+- **Team Lobby**: Host creates a party lobby, team members join, mark ready, and host starts the match.
+
+### 10.4 User Profile, Scoreboard, Friends, Refer & Auth
+- **User Profile**: Tracks display name, Player ID, avatar, chips balance, and comprehensive match statistics (Games Played, Wins, Win Rate %, Best Score, Zero-Card Wins).
+- **Global Scoreboard**: Displays leaderboard rankings of top players by wins and win rate.
+- **Friends System**: List of added friends with live Online/Offline status and quick "Invite to Game" button.
+- **Refer & Earn**: Unique referral code generation (`REF-XXXX`), referral count tracking, and reward bonuses (+200 chips for referrer, +100 bonus chips for referred player).
+- **Google Auth Integration**: Login screen includes direct sign-in and a Google OAuth-ready component configured for production deployment.
+

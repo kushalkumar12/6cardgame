@@ -44,16 +44,30 @@ describe('AIBot Unit Tests for Mode 1 (Play with System)', () => {
     expect(matchingIndices).toContain(0);
   });
 
-  it('decides to draw when no matching cards are known', () => {
+  it('decides to draw when no matching cards are known and discard is unhelpful', () => {
     const card0: Card = { id: 'c0', rank: '2', suit: 'HEARTS', pointValue: 2 };
     bot.recordMemorizedCards([0, 1], [card0, { id: 'c1', rank: '3', suit: 'CLUBS', pointValue: 3 }]);
+
+    const state = engine.getState();
+    state.discardPile.push({ id: 'top-9', rank: '9', suit: 'DIAMONDS', pointValue: 9 });
+    engine.loadState(state);
+
+    const decision = bot.decideTurnStartAction(engine);
+    expect(decision).toBe('DRAW');
+  });
+
+  it('decides to replace from discard when discard card is low and improves hand', () => {
+    bot.recordMemorizedCards([0, 1], [
+      { id: 'c0', rank: 'J', suit: 'HEARTS', pointValue: 40 },
+      { id: 'c1', rank: '9', suit: 'CLUBS', pointValue: 9 },
+    ]);
 
     const state = engine.getState();
     state.discardPile.push({ id: 'top-K', rank: 'K', suit: 'DIAMONDS', pointValue: 0 });
     engine.loadState(state);
 
     const decision = bot.decideTurnStartAction(engine);
-    expect(decision).toBe('DRAW');
+    expect(decision).toBe('REPLACE_FROM_DISCARD');
   });
 
   it('uses 7 ability to peek an unknown card in its hand', () => {

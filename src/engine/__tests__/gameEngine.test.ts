@@ -541,5 +541,41 @@ describe('GameEngine Unit Tests', () => {
       // 0 + 1 + 10 + 10 + 40 + 7 = 68
       expect(calculateHandScore(hand)).toBe(68);
     });
+
+    it('replaces a card in hand with the top card from the discard pile', () => {
+      const engine = new GameEngine({ playerNames: ['P1', 'P2'] });
+      const state = engine.getState();
+      state.currentPhase = 'TURN_START';
+      // Setup discard pile with a 9
+      state.discardPile.push({ id: 'd-9', rank: '9', suit: 'SPADES', pointValue: 9 });
+      // Player 1 has a Jack (40 pts) at position 1
+      state.players[0].cards[1] = { id: 'p1-J', rank: 'J', suit: 'HEARTS', pointValue: 40 };
+      engine.loadState(state);
+
+      const { takenCard, replacedCard } = engine.replaceCardFromDiscard(1);
+      expect(takenCard.rank).toBe('9');
+      expect(takenCard.pointValue).toBe(9);
+      expect(replacedCard.rank).toBe('J');
+      expect(replacedCard.pointValue).toBe(40);
+
+      // Verify Player 1 hand now has 9 at index 1
+      const p1 = engine.getState().players[0];
+      expect(p1.cards[1].rank).toBe('9');
+
+      // Verify top discard is now the replaced Jack
+      const topDiscard = engine.getState().discardPile[engine.getState().discardPile.length - 1];
+      expect(topDiscard.rank).toBe('J');
+      expect(topDiscard.pointValue).toBe(40);
+    });
+
+    it('rejects replaceCardFromDiscard if discard pile is empty', () => {
+      const engine = new GameEngine({ playerNames: ['P1', 'P2'] });
+      const state = engine.getState();
+      state.currentPhase = 'TURN_START';
+      state.discardPile = [];
+      engine.loadState(state);
+
+      expect(() => engine.replaceCardFromDiscard(0)).toThrow('Discard pile is empty');
+    });
   });
 });

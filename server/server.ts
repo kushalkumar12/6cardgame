@@ -659,6 +659,9 @@ io.on('connection', (socket: Socket) => {
       } else if (actionType === 'REPLACE') {
         engine.replaceCard(payload.index);
         engine.confirmPassDevice();
+      } else if (actionType === 'REPLACE_FROM_DISCARD') {
+        engine.replaceCardFromDiscard(payload.positionIndex);
+        engine.confirmPassDevice();
       } else if (actionType === 'DISCARD') {
         engine.discardDrawnCard();
         engine.confirmPassDevice();

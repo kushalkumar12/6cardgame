@@ -329,6 +329,44 @@ export class GameEngine {
   }
 
   /**
+   * Replace one of player's cards directly with the top card of the discard pile.
+   */
+  public replaceCardFromDiscard(positionIndex: number): { takenCard: Card; replacedCard: Card } {
+    if (this.state.gameOver) {
+      throw new Error('Game is already over.');
+    }
+
+    if (this.state.currentPhase !== 'TURN_START') {
+      throw new Error(`Cannot replace card from discard during phase: ${this.state.currentPhase}`);
+    }
+
+    if (this.state.discardPile.length === 0) {
+      throw new Error('Discard pile is empty.');
+    }
+
+    const player = this.getCurrentPlayer();
+    if (positionIndex < 0 || positionIndex >= player.cards.length) {
+      throw new Error(`Invalid card position: ${positionIndex}`);
+    }
+
+    const takenCard = this.state.discardPile.pop()!;
+    const replacedCard = player.cards[positionIndex];
+    player.cards[positionIndex] = takenCard;
+    this.state.discardPile.push(replacedCard);
+
+    this.state.actionHistory.push(
+      createLogEntry(
+        `${player.displayName} replaced card at position ${positionIndex + 1} with ${takenCard.rank} from discard pile.`,
+        'REPLACE',
+        player.id
+      )
+    );
+
+    this.advanceTurn();
+    return { takenCard, replacedCard };
+  }
+
+  /**
    * Discard the drawn card without replacing.
    */
   public discardDrawnCard(): void {

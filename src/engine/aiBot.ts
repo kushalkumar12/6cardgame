@@ -46,7 +46,9 @@ export class AIBot {
   /**
    * Makes a turn decision at TURN_START.
    */
-  public decideTurnStartAction(engine: GameEngine): 'ELIMINATE' | 'DECLARE_VICTORY' | 'DRAW' {
+  public decideTurnStartAction(
+    engine: GameEngine
+  ): 'ELIMINATE' | 'DECLARE_VICTORY' | 'REPLACE_FROM_DISCARD' | 'DRAW' {
     const state = engine.getState();
     const self = state.players.find((p) => p.id === this.playerId);
     if (!self) return 'DRAW';
@@ -86,8 +88,47 @@ export class AIBot {
       }
     }
 
+    // 3. Check if top discard card is attractive to replace a higher known card in hand:
+    if (state.discardPile.length > 0) {
+      const topDiscard = state.discardPile[state.discardPile.length - 1];
+      const replaceIdx = this.getBestDiscardReplacementIndex(engine);
+      if (replaceIdx !== -1 && topDiscard.pointValue <= 7) {
+        return 'REPLACE_FROM_DISCARD';
+      }
+    }
+
     // Otherwise, draw a card
     return 'DRAW';
+  }
+
+  /**
+   * Finds the best card index to replace with top discard, if beneficial.
+   */
+  public getBestDiscardReplacementIndex(engine: GameEngine): number {
+    const state = engine.getState();
+    const self = state.players.find((p) => p.id === this.playerId);
+    if (!self || state.discardPile.length === 0) return -1;
+
+    const topDiscard = state.discardPile[state.discardPile.length - 1];
+    let worstIndex = -1;
+    let highestPoints = topDiscard.pointValue;
+
+    self.cards.forEach((_, idx) => {
+      const known = this.memory.ownKnownCards.get(idx);
+      if (known && known.pointValue > highestPoints) {
+        highestPoints = known.pointValue;
+        worstIndex = idx;
+      }
+    });
+
+    return worstIndex;
+  }
+
+  /**
+   * Updates bot memory after replacing a card from discard pile.
+   */
+  public onCardReplacedFromDiscard(index: number, newCard: Card): void {
+    this.memory.ownKnownCards.set(index, newCard);
   }
 
   /**

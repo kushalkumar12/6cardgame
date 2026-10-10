@@ -56,6 +56,7 @@ export const App: React.FC = () => {
   const [showRules, setShowRules] = useState(false);
   const [showDeclareVictoryConfirm, setShowDeclareVictoryConfirm] = useState(false);
   const [isReplacingMode, setIsReplacingMode] = useState(false);
+  const [isReplacingFromDiscardMode, setIsReplacingFromDiscardMode] = useState(false);
 
   // Invitation Toast state
   const [incomingInvite, setIncomingInvite] = useState<{ fromName: string; roomCode: string } | null>(null);
@@ -249,6 +250,16 @@ export const App: React.FC = () => {
                 } else {
                   engine.acknowledgePenalty();
                 }
+                engine.confirmPassDevice();
+              } else {
+                engine.drawCard();
+              }
+            } else if (decision === 'REPLACE_FROM_DISCARD') {
+              const replaceIdx = aiBot.getBestDiscardReplacementIndex(engine);
+              if (replaceIdx !== -1 && gameState.discardPile.length > 0) {
+                const topDiscard = gameState.discardPile[gameState.discardPile.length - 1];
+                engine.replaceCardFromDiscard(replaceIdx);
+                aiBot.onCardReplacedFromDiscard(replaceIdx, topDiscard);
                 engine.confirmPassDevice();
               } else {
                 engine.drawCard();
@@ -627,10 +638,14 @@ export const App: React.FC = () => {
                   ? '🤖 System AI is making its move...'
                   : !isMyTurnInNetwork && activeRoom
                   ? `Waiting for ${activePlayer?.displayName}...`
+                  : isReplacingFromDiscardMode
+                  ? `Click any card in your hand to replace it with ${topDiscard?.rank} (${topDiscard?.pointValue} pts) from Discard.`
                   : isReplacingMode
                   ? 'Click any card in your hand below to replace it.'
                   : gameState.currentPhase === 'CARD_DRAWN'
                   ? 'Choose an action for your drawn card below.'
+                  : topDiscard
+                  ? 'Draw a card, replace a card with discard, attempt matching elimination, or declare victory.'
                   : 'Draw a card, attempt matching elimination, or declare victory.'}
               </span>
             </div>
@@ -717,6 +732,7 @@ export const App: React.FC = () => {
                   className="action-btn action-btn-draw"
                   disabled={selectedMode === 'system' && gameState.currentPlayerIndex === 1}
                   onClick={() => {
+                    setIsReplacingFromDiscardMode(false);
                     if (activeRoom) {
                       socket.emit('room_action', { roomCode: activeRoom.roomCode, actionType: 'DRAW' });
                     } else {
@@ -734,11 +750,26 @@ export const App: React.FC = () => {
                   🎴 Draw Card
                 </button>
 
+                {topDiscard && (
+                  <button
+                    type="button"
+                    className={`action-btn ${isReplacingFromDiscardMode ? 'action-btn-neutral' : 'action-btn-draw'}`}
+                    disabled={selectedMode === 'system' && gameState.currentPlayerIndex === 1}
+                    onClick={() => {
+                      setIsReplacingFromDiscardMode(!isReplacingFromDiscardMode);
+                    }}
+                    id="replace-card-btn"
+                  >
+                    🔄 {isReplacingFromDiscardMode ? 'Cancel Replacement' : `Replace the Card (${topDiscard.pointValue} pts)`}
+                  </button>
+                )}
+
                 <button
                   type="button"
                   className="action-btn action-btn-eliminate"
                   disabled={!topDiscard || (selectedMode === 'system' && gameState.currentPlayerIndex === 1)}
                   onClick={() => {
+                    setIsReplacingFromDiscardMode(false);
                     engine.startElimination();
                     syncEngineState();
                   }}
@@ -751,7 +782,10 @@ export const App: React.FC = () => {
                   type="button"
                   className="action-btn action-btn-declare"
                   disabled={!gameState.firstRoundCompleted || (selectedMode === 'system' && gameState.currentPlayerIndex === 1)}
-                  onClick={() => setShowDeclareVictoryConfirm(true)}
+                  onClick={() => {
+                    setIsReplacingFromDiscardMode(false);
+                    setShowDeclareVictoryConfirm(true);
+                  }}
                   id="declare-victory-btn"
                 >
                   🏆 Declare Victory
@@ -838,10 +872,28 @@ export const App: React.FC = () => {
               player={activePlayer}
               isActiveTurn={true}
               isSelf={true}
-              interactive={isReplacingMode && isMyTurnInNetwork}
-              prompt={isReplacingMode ? 'Click the card position you want to replace.' : undefined}
+              interactive={(isReplacingMode || isReplacingFromDiscardMode) && isMyTurnInNetwork}
+              prompt={
+                isReplacingFromDiscardMode
+                  ? `Click the card position in your hand to replace with ${topDiscard?.rank} (${topDiscard?.pointValue} pts).`
+                  : isReplacingMode
+                  ? 'Click the card position you want to replace.'
+                  : undefined
+              }
               onCardClick={(index) => {
-                if (isReplacingMode) {
+                if (isReplacingFromDiscardMode) {
+                  if (activeRoom) {
+                    socket.emit('room_action', {
+                      roomCode: activeRoom.roomCode,
+                      actionType: 'REPLACE_FROM_DISCARD',
+                      payload: { positionIndex: index },
+                    });
+                  } else {
+                    engine.replaceCardFromDiscard(index);
+                    syncEngineState();
+                  }
+                  setIsReplacingFromDiscardMode(false);
+                } else if (isReplacingMode) {
                   if (activeRoom) {
                     socket.emit('room_action', {
                       roomCode: activeRoom.roomCode,

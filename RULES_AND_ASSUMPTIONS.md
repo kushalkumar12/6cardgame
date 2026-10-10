@@ -81,10 +81,15 @@ On their own turn, the active player may:
      - **Replace**: Choose an existing position in hand. The drawn card takes this spot face-down; the replaced card is moved face-up to the discard pile.
      - **Discard**: Move the drawn card directly face-up to the discard pile.
      - **Special Ability (7, 8, J)**: Execute the card's ability, then discard the special card.
-2. **Attempt Matching Elimination**:
+2. **Replace Card with Top Discard Card**:
+   - Eligible if the discard pile contains at least one card.
+   - The active player takes the visible top card from the discard pile and swaps it with any card in their hand (e.g. replacing a high penalty card like Jack with a low card like 9, 2, or King).
+   - The replaced card from hand is moved face-up to the discard pile and becomes the new top discard.
+   - This completes the turn and control advances clockwise.
+3. **Attempt Matching Elimination**:
    - Eligible if the discard pile contains at least one card.
    - Compare numeric point values against the top face-up discard card.
-3. **Declare Victory**:
+4. **Declare Victory**:
    - Eligible only after Round 1 has finished (i.e. `roundNumber > 1`).
 
 ---

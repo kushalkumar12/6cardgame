@@ -1,6 +1,7 @@
 // ========================================================
-// SIX CARDS MOBILE - ZERO-LATENCY SOUND & MUSIC SYNTHESIZER
-// Pre-warmed audio context for instant mobile tactile feedback
+// SIX CARDS MOBILE - LUXURY CASINO AUDIO & LO-FI LOUNGE ENGINE
+// High-fidelity Web Audio synthesis: zero latency, zero asset downloads,
+// velvet-smooth ambient lounge jazz & tactile haptic card SFX.
 // ========================================================
 
 class SoundManager {
@@ -13,7 +14,6 @@ class SoundManager {
   private isWarmedUp: boolean = false;
 
   constructor() {
-    // Read persisted sound settings
     try {
       this.isBgmActive = localStorage.getItem('six_cards_music') !== 'false';
       this.isSfxMuted = localStorage.getItem('six_cards_sfx') === 'false';
@@ -22,7 +22,6 @@ class SoundManager {
       this.isSfxMuted = false;
     }
 
-    // Auto-warmup on first user touch/tap anywhere
     if (typeof window !== 'undefined') {
       const warmUp = () => {
         this.warmUpAudio();
@@ -39,17 +38,15 @@ class SoundManager {
   public warmUpAudio(): void {
     if (this.isWarmedUp && this.ctx && this.ctx.state === 'running') return;
     const ctx = this.initCtx();
-    if (ctx && ctx.state === 'suspended') {
-      ctx.resume().then(() => {
+    if (ctx) {
+      if (ctx.state === 'suspended') {
+        ctx.resume().then(() => {
+          this.isWarmedUp = true;
+          if (this.isBgmActive) this.startAmbientMusicLoop();
+        }).catch(() => {});
+      } else {
         this.isWarmedUp = true;
-        if (this.isBgmActive) {
-          this.startAmbientMusicLoop();
-        }
-      }).catch(() => {});
-    } else {
-      this.isWarmedUp = true;
-      if (this.isBgmActive) {
-        this.startAmbientMusicLoop();
+        if (this.isBgmActive) this.startAmbientMusicLoop();
       }
     }
   }
@@ -59,156 +56,258 @@ class SoundManager {
       const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
       if (AudioCtxClass) {
         this.ctx = new AudioCtxClass({ latencyHint: 'interactive' });
+
         this.sfxGain = this.ctx.createGain();
-        this.sfxGain.gain.value = this.isSfxMuted ? 0 : 0.5;
+        this.sfxGain.gain.value = this.isSfxMuted ? 0 : 0.6;
         this.sfxGain.connect(this.ctx.destination);
 
         this.bgmGain = this.ctx.createGain();
-        this.bgmGain.gain.value = this.isBgmActive ? 0.22 : 0;
+        this.bgmGain.gain.value = this.isBgmActive ? 0.16 : 0;
         this.bgmGain.connect(this.ctx.destination);
       }
     }
     return this.ctx;
   }
 
-  // ZERO-LATENCY GAME CLICKS & SFX
+  // ========================================================
+  // 1. TACTILE HAPTIC UI CLICK
+  // Soft, satisfying acoustic tap (no harsh sine beeps)
+  // ========================================================
   public playClick(): void {
     if (this.isSfxMuted) return;
     const ctx = this.initCtx();
     if (!ctx || !this.sfxGain) return;
-    if (ctx.state === 'suspended') {
-      ctx.resume().catch(() => {});
-    }
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
 
     try {
       const now = ctx.currentTime;
+
+      // Resonant mid-body snap
       const osc = ctx.createOscillator();
+      const filter = ctx.createBiquadFilter();
       const gain = ctx.createGain();
 
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(680, now);
-      osc.frequency.exponentialRampToValueAtTime(320, now + 0.038);
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(320, now);
+      osc.frequency.exponentialRampToValueAtTime(80, now + 0.024);
 
-      // Instant attack
-      gain.gain.setValueAtTime(0.4, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.038);
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(950, now);
+      filter.Q.setValueAtTime(2.2, now);
 
-      osc.connect(gain);
+      gain.gain.setValueAtTime(0.35, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.024);
+
+      osc.connect(filter);
+      filter.connect(gain);
       gain.connect(this.sfxGain);
 
       osc.start(now);
-      osc.stop(now + 0.038);
+      osc.stop(now + 0.026);
+
+      // Soft sub-haptic pop
+      const subOsc = ctx.createOscillator();
+      const subGain = ctx.createGain();
+      subOsc.type = 'sine';
+      subOsc.frequency.setValueAtTime(140, now);
+      subOsc.frequency.exponentialRampToValueAtTime(45, now + 0.02);
+
+      subGain.gain.setValueAtTime(0.25, now);
+      subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
+
+      subOsc.connect(subGain);
+      subGain.connect(this.sfxGain);
+
+      subOsc.start(now);
+      subOsc.stop(now + 0.022);
     } catch {}
   }
 
+  // ========================================================
+  // 2. REALISTIC CARD DRAW / SLIDE
+  // Crisp felt friction and card body snap
+  // ========================================================
   public playCardDraw(): void {
     if (this.isSfxMuted) return;
     const ctx = this.initCtx();
     if (!ctx || !this.sfxGain) return;
-    if (ctx.state === 'suspended') {
-      ctx.resume().catch(() => {});
-    }
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
 
     try {
       const now = ctx.currentTime;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
 
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(300, now);
-      osc.frequency.exponentialRampToValueAtTime(520, now + 0.08);
+      // Card friction noise sweep
+      const bufferSize = Math.floor(ctx.sampleRate * 0.06);
+      const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+      }
 
-      gain.gain.setValueAtTime(0.3, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+      const noise = ctx.createBufferSource();
+      noise.buffer = noiseBuffer;
 
-      osc.connect(gain);
-      gain.connect(this.sfxGain);
+      const noiseFilter = ctx.createBiquadFilter();
+      noiseFilter.type = 'bandpass';
+      noiseFilter.frequency.setValueAtTime(3200, now);
+      noiseFilter.frequency.exponentialRampToValueAtTime(1200, now + 0.055);
+      noiseFilter.Q.setValueAtTime(1.8, now);
 
-      osc.start(now);
-      osc.stop(now + 0.08);
+      const noiseGain = ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.3, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.055);
+
+      noise.connect(noiseFilter);
+      noiseFilter.connect(noiseGain);
+      noiseGain.connect(this.sfxGain);
+
+      noise.start(now);
+
+      // Card body snap tone
+      const snap = ctx.createOscillator();
+      const snapGain = ctx.createGain();
+      snap.type = 'sine';
+      snap.frequency.setValueAtTime(480, now + 0.012);
+      snap.frequency.exponentialRampToValueAtTime(160, now + 0.048);
+
+      snapGain.gain.setValueAtTime(0.22, now + 0.012);
+      snapGain.gain.exponentialRampToValueAtTime(0.001, now + 0.048);
+
+      snap.connect(snapGain);
+      snapGain.connect(this.sfxGain);
+
+      snap.start(now + 0.012);
+      snap.stop(now + 0.05);
     } catch {}
   }
 
+  // ========================================================
+  // 3. CARD FLIP (FELT THUD)
+  // Double-flutter transient of card snapping face-up
+  // ========================================================
   public playCardFlip(): void {
     if (this.isSfxMuted) return;
     const ctx = this.initCtx();
     if (!ctx || !this.sfxGain) return;
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
 
     try {
       const now = ctx.currentTime;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
+      [0, 0.022].forEach((offset, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
 
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(540, now);
-      osc.frequency.exponentialRampToValueAtTime(800, now + 0.06);
+        osc.type = idx === 0 ? 'sine' : 'triangle';
+        osc.frequency.setValueAtTime(idx === 0 ? 520 : 380, now + offset);
+        osc.frequency.exponentialRampToValueAtTime(120, now + offset + 0.032);
 
-      gain.gain.setValueAtTime(0.32, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+        gain.gain.setValueAtTime(0.28, now + offset);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.032);
 
-      osc.connect(gain);
-      gain.connect(this.sfxGain);
+        osc.connect(gain);
+        gain.connect(this.sfxGain!);
 
-      osc.start(now);
-      osc.stop(now + 0.06);
+        osc.start(now + offset);
+        osc.stop(now + offset + 0.034);
+      });
     } catch {}
   }
 
+  // ========================================================
+  // 4. SPARKLING CASINO ELIMINATION CHIME
+  // Warm pentatonic bell chime cascade
+  // ========================================================
   public playEliminate(): void {
     if (this.isSfxMuted) return;
     const ctx = this.initCtx();
     if (!ctx || !this.sfxGain) return;
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
 
     try {
       const now = ctx.currentTime;
-      const notes = [440, 587, 740];
-      notes.forEach((freq, i) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
+      // High-register sparkling chord: E6 (1318Hz), G#6 (1661Hz), B6 (1975Hz), E7 (2637Hz)
+      const freqs = [1046.5, 1318.5, 1568.0, 2093.0];
+      freqs.forEach((freq, idx) => {
+        const t = now + idx * 0.045;
 
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(freq, now + i * 0.04);
+        // Carrier
+        const carrier = ctx.createOscillator();
+        const carrierGain = ctx.createGain();
 
-        gain.gain.setValueAtTime(0.32, now + i * 0.04);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.04 + 0.1);
+        // Modulator for glass/bell harmonics
+        const mod = ctx.createOscillator();
+        const modGain = ctx.createGain();
 
-        osc.connect(gain);
-        gain.connect(this.sfxGain!);
+        carrier.type = 'sine';
+        carrier.frequency.setValueAtTime(freq, t);
 
-        osc.start(now + i * 0.04);
-        osc.stop(now + i * 0.04 + 0.1);
+        mod.type = 'sine';
+        mod.frequency.setValueAtTime(freq * 2.01, t);
+
+        modGain.gain.setValueAtTime(freq * 0.6, t);
+        modGain.gain.exponentialRampToValueAtTime(1, t + 0.28);
+
+        mod.connect(carrier.frequency);
+
+        carrierGain.gain.setValueAtTime(0.24, t);
+        carrierGain.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+
+        carrier.connect(carrierGain);
+        carrierGain.connect(this.sfxGain!);
+
+        carrier.start(t);
+        mod.start(t);
+        carrier.stop(t + 0.29);
+        mod.stop(t + 0.29);
       });
     } catch {}
   }
 
+  // ========================================================
+  // 5. CELEBRATORY VICTORY FANFARE
+  // Warm, triumphant orchestral chime flourish
+  // ========================================================
   public playVictory(): void {
     if (this.isSfxMuted) return;
     const ctx = this.initCtx();
     if (!ctx || !this.sfxGain) return;
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
 
     try {
       const now = ctx.currentTime;
-      const melody = [523.25, 659.25, 783.99, 1046.5];
+      // C Major 9 victory arpeggio: C5, E5, G5, B5, C6, E6
+      const melody = [523.25, 659.25, 783.99, 987.77, 1046.5, 1318.5];
       melody.forEach((freq, idx) => {
+        const t = now + idx * 0.085;
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
+        const filter = ctx.createBiquadFilter();
 
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, now + idx * 0.09);
+        osc.type = idx % 2 === 0 ? 'sine' : 'triangle';
+        osc.frequency.setValueAtTime(freq, t);
 
-        gain.gain.setValueAtTime(0.35, now + idx * 0.09);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.09 + 0.3);
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(2400, t);
 
-        osc.connect(gain);
+        gain.gain.setValueAtTime(0.3, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.65);
+
+        osc.connect(filter);
+        filter.connect(gain);
         gain.connect(this.sfxGain!);
 
-        osc.start(now + idx * 0.09);
-        osc.stop(now + idx * 0.09 + 0.3);
+        osc.start(t);
+        osc.stop(t + 0.66);
       });
     } catch {}
   }
 
-  // AMBIENT BACKGROUND MUSIC
+  // ========================================================
+  // 6. LO-FI CASINO JAZZ LOUNGE (AMBIENT BGM)
+  // Warm Rhodes Electric Piano + Deep Upright Bass
+  // Classy, relaxing, timeless 4-bar progression:
+  // Dm9 -> G13 -> Cmaj9 -> Am9
+  // ========================================================
   public toggleMusic(enable?: boolean): boolean {
     this.isBgmActive = enable !== undefined ? enable : !this.isBgmActive;
     try {
@@ -218,7 +317,7 @@ class SoundManager {
     const ctx = this.initCtx();
     if (this.bgmGain && ctx) {
       if (ctx.state === 'suspended') ctx.resume().catch(() => {});
-      this.bgmGain.gain.setTargetAtTime(this.isBgmActive ? 0.22 : 0, ctx.currentTime, 0.1);
+      this.bgmGain.gain.setTargetAtTime(this.isBgmActive ? 0.16 : 0, ctx.currentTime, 0.15);
     }
 
     if (this.isBgmActive) {
@@ -240,7 +339,7 @@ class SoundManager {
     const ctx = this.initCtx();
     if (this.sfxGain && ctx) {
       if (ctx.state === 'suspended') ctx.resume().catch(() => {});
-      this.sfxGain.gain.setValueAtTime(this.isSfxMuted ? 0 : 0.5, ctx.currentTime);
+      this.sfxGain.gain.setValueAtTime(this.isSfxMuted ? 0 : 0.6, ctx.currentTime);
     }
 
     return !this.isSfxMuted;
@@ -256,52 +355,110 @@ class SoundManager {
 
   private startAmbientMusicLoop(): void {
     if (this.bgmTimer) return;
-    const chords = [
-      [261.63, 329.63, 392.0, 493.88], // Cmaj7
-      [220.0, 261.63, 329.63, 392.0],  // Am7
-      [174.61, 220.0, 261.63, 329.63], // Fmaj7
-      [196.0, 246.94, 293.66, 392.0],  // G7
-    ];
-    let chordIndex = 0;
 
-    const playChordStep = () => {
+    // 4-Bar Classic Casino Jazz Progression
+    // Chords with warm electric piano voicing & root upright bass
+    const jazzLoungeBars = [
+      {
+        rootBass: 73.42, // D2
+        epNotes: [220.0, 261.63, 329.63, 349.23], // Dm9: A3, C4, E4, F4
+      },
+      {
+        rootBass: 98.0, // G2
+        epNotes: [174.61, 246.94, 329.63, 440.0], // G13: F3, B3, E4, A4
+      },
+      {
+        rootBass: 65.41, // C2
+        epNotes: [196.0, 246.94, 293.66, 329.63], // Cmaj9: G3, B3, D4, E4
+      },
+      {
+        rootBass: 110.0, // A2
+        epNotes: [164.81, 196.0, 246.94, 261.63], // Am9: E3, G3, B3, C4
+      },
+    ];
+
+    let currentBar = 0;
+
+    const playBar = () => {
       if (!this.isBgmActive) return;
       const ctx = this.initCtx();
       if (!ctx || !this.bgmGain) return;
       if (ctx.state === 'suspended') return;
 
-      const currentChord = chords[chordIndex % chords.length];
-      chordIndex++;
+      const bar = jazzLoungeBars[currentBar % jazzLoungeBars.length];
+      currentBar++;
+      const now = ctx.currentTime;
 
-      currentChord.forEach((freq, noteIdx) => {
+      // 1. Warm Upright Acoustic Bass Pluck
+      try {
+        const bassOsc = ctx.createOscillator();
+        const bassGain = ctx.createGain();
+        const bassFilter = ctx.createBiquadFilter();
+
+        bassOsc.type = 'sine';
+        bassOsc.frequency.setValueAtTime(bar.rootBass, now);
+
+        bassFilter.type = 'lowpass';
+        bassFilter.frequency.setValueAtTime(260, now);
+
+        bassGain.gain.setValueAtTime(0.001, now);
+        bassGain.gain.linearRampToValueAtTime(0.32, now + 0.03);
+        bassGain.gain.exponentialRampToValueAtTime(0.001, now + 2.4);
+
+        bassOsc.connect(bassFilter);
+        bassFilter.connect(bassGain);
+        bassGain.connect(this.bgmGain);
+
+        bassOsc.start(now);
+        bassOsc.stop(now + 2.5);
+      } catch {}
+
+      // 2. Mellow Rhodes Electric Piano Strum (Lush arpeggiated voicing)
+      bar.epNotes.forEach((freq, idx) => {
         try {
-          const osc = ctx.createOscillator();
-          const filter = ctx.createBiquadFilter();
-          const gain = ctx.createGain();
+          const strumDelay = idx * 0.045; // Gentle strum spread
+          const t = now + strumDelay;
 
-          osc.type = noteIdx % 2 === 0 ? 'sine' : 'triangle';
-          osc.frequency.setValueAtTime(freq, ctx.currentTime);
+          const carrier = ctx.createOscillator();
+          const mod = ctx.createOscillator();
+          const modGain = ctx.createGain();
+          const epGain = ctx.createGain();
+          const epFilter = ctx.createBiquadFilter();
 
-          filter.type = 'lowpass';
-          filter.frequency.setValueAtTime(700, ctx.currentTime);
+          carrier.type = 'sine';
+          carrier.frequency.setValueAtTime(freq, t);
 
-          const startTime = ctx.currentTime + noteIdx * 0.16;
-          gain.gain.setValueAtTime(0.001, startTime);
-          gain.gain.linearRampToValueAtTime(0.045, startTime + 0.25);
-          gain.gain.exponentialRampToValueAtTime(0.001, startTime + 2.0);
+          // Subtle FM bell overtone (Rhodes tine)
+          mod.type = 'sine';
+          mod.frequency.setValueAtTime(freq * 2.0, t);
 
-          osc.connect(filter);
-          filter.connect(gain);
-          gain.connect(this.bgmGain!);
+          modGain.gain.setValueAtTime(freq * 0.45, t);
+          modGain.gain.exponentialRampToValueAtTime(1, t + 0.4);
+          mod.connect(carrier.frequency);
 
-          osc.start(startTime);
-          osc.stop(startTime + 2.0);
+          epFilter.type = 'lowpass';
+          epFilter.frequency.setValueAtTime(1400, t);
+          epFilter.frequency.exponentialRampToValueAtTime(600, t + 2.2);
+
+          epGain.gain.setValueAtTime(0.001, t);
+          epGain.gain.linearRampToValueAtTime(0.18, t + 0.025);
+          epGain.gain.exponentialRampToValueAtTime(0.001, t + 2.3);
+
+          carrier.connect(epFilter);
+          epFilter.connect(epGain);
+          epGain.connect(this.bgmGain!);
+
+          carrier.start(t);
+          mod.start(t);
+          carrier.stop(t + 2.4);
+          mod.stop(t + 2.4);
         } catch {}
       });
     };
 
-    playChordStep();
-    this.bgmTimer = window.setInterval(playChordStep, 2400);
+    playBar();
+    // Smooth 2.8 second bar tempo for a relaxed, atmospheric groove
+    this.bgmTimer = window.setInterval(playBar, 2800);
   }
 
   private stopAmbientMusicLoop(): void {

@@ -64,7 +64,7 @@ app.get('/', async (_req, res) => {
 });
 
 // Health & Environment Profile Status
-app.get('/api/health', async (_req, res) => {
+app.get(['/health', '/api/health'], async (_req, res) => {
   try {
     const db = await getDatabase();
     res.json({

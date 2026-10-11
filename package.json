@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "start": "cross-env APP_PROFILE=prod tsx server/server.ts",
     "server": "cross-env APP_PROFILE=dev tsx server/server.ts",
     "server:dev": "cross-env APP_PROFILE=dev tsx server/server.ts",
     "server:prod": "cross-env APP_PROFILE=prod tsx server/server.ts",

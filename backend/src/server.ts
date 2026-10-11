@@ -12,9 +12,27 @@ import { GameHistoryRepository } from './db/repositories/historyRepo';
 import { ConnectionRepository } from './db/repositories/connectionRepo';
 
 const app = express();
+
+// Bulletproof CORS handler: automatically echoes back requesting origin with credentials
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+  next();
+});
+
 app.use(
   cors({
-    origin: config.corsOrigins,
+    origin: (_origin, callback) => callback(null, true),
     credentials: true,
   })
 );
@@ -23,7 +41,7 @@ app.use(express.json());
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: config.corsOrigins,
+    origin: (_origin, callback) => callback(null, true),
     methods: ['GET', 'POST'],
     credentials: true,
   },

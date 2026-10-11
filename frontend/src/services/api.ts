@@ -26,6 +26,9 @@ export interface SystemHealth {
 }
 
 export const api = {
+  getServerUrl(): string {
+    return SERVER_URL;
+  },
   async getHealth(): Promise<SystemHealth> {
     const res = await fetch(`${API_BASE}/health`);
     return res.json();

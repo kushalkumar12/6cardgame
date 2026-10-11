@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import type { UserProfile } from '../types/user';
 
@@ -11,6 +11,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
   const [referralCode, setReferralCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [serverHealth, setServerHealth] = useState<{ checked: boolean; healthy: boolean; profile?: string }>({
+    checked: false,
+    healthy: false,
+  });
+
+  useEffect(() => {
+    console.log(`[SixCards] 🌐 Connecting to backend: ${api.getServerUrl()}`);
+    api
+      .getHealth()
+      .then((data) => {
+        console.log('[SixCards] ✅ Backend health check response:', data);
+        setServerHealth({ checked: true, healthy: data.status === 'healthy', profile: data.profile });
+      })
+      .catch((err) => {
+        console.warn('[SixCards] ⚠️ Backend health check failed:', err);
+        setServerHealth({ checked: true, healthy: false });
+      });
+  }, []);
 
   const handleGuestLogin = async () => {
     setLoading(true);
@@ -26,8 +44,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
       } else {
         setError('Login failed');
       }
-    } catch {
-      setError('Connection failed. Make sure the server is running.');
+    } catch (err: any) {
+      console.error('[SixCards] Login failed:', err);
+      setError(`Connection failed. Target: ${api.getServerUrl()}. If the server was sleeping, please wait a few seconds and try again.`);
     } finally {
       setLoading(false);
     }
@@ -70,6 +89,35 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
           Sign in to access Player Profiles, Match Scoreboard, Friends list, Refer & Earn, and Online Multiplayer!
         </p>
+
+        {/* Live Server Health Status Badge */}
+        <div
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            fontSize: '0.78rem',
+            padding: '4px 12px',
+            borderRadius: 20,
+            marginBottom: 12,
+            background: serverHealth.healthy
+              ? 'rgba(34, 197, 94, 0.15)'
+              : 'rgba(234, 179, 8, 0.15)',
+            border: `1px solid ${
+              serverHealth.healthy ? 'rgba(34, 197, 94, 0.3)' : 'rgba(234, 179, 8, 0.3)'
+            }`,
+            color: serverHealth.healthy ? '#4ade80' : '#facc15',
+          }}
+        >
+          <span>{serverHealth.healthy ? '🟢' : serverHealth.checked ? '🟡' : '🔄'}</span>
+          <span>
+            {serverHealth.healthy
+              ? `Backend Connected (${serverHealth.profile?.toUpperCase() || 'PROD'})`
+              : serverHealth.checked
+              ? 'Waking up backend server...'
+              : 'Verifying server connection...'}
+          </span>
+        </div>
 
         {error && (
           <div style={{ color: '#fda4af', background: 'rgba(225,29,72,0.15)', padding: 10, borderRadius: 8, marginBottom: 16 }}>

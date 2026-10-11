@@ -463,6 +463,7 @@ export const App: React.FC = () => {
 
   // Logout action
   const handleLogout = () => {
+    soundManager.stopAmbientMusic();
     setCurrentUser(null);
     setShowProfile(false);
     setSelectedMode(null);
@@ -497,12 +498,17 @@ export const App: React.FC = () => {
       <div className="phone-wrapper">
         <AuthModal
           onSuccess={(u) => {
-            soundManager.playClick();
             setCurrentUser(u);
             try {
               sessionStorage.setItem(USER_SESSION_KEY, JSON.stringify(u));
               localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(u));
             } catch {}
+            // Start game audio & ambient lounge music only once entering game lobby
+            soundManager.warmUpAudio();
+            soundManager.playClick();
+            if (isMusicOn) {
+              soundManager.startAmbientMusic();
+            }
           }}
         />
       </div>

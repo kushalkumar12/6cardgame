@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import type { UserProfile } from '../types/user';
 import { soundManager } from '../services/soundManager';
@@ -12,9 +12,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // 1. PLAY AS GUEST
+  // Silence all music and sounds on login page
+  useEffect(() => {
+    soundManager.stopAmbientMusic();
+  }, []);
+
+  // 1. PLAY AS GUEST (SILENT ON LOGIN PAGE)
   const handleGuestLogin = async () => {
-    soundManager.playClick();
     setLoading(true);
     setError('');
     try {
@@ -50,7 +54,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
 
   // 2. LOGIN (WITH ENTERED USERNAME)
   const handleLoginClick = async () => {
-    soundManager.playClick();
     if (!username.trim()) {
       setError('Please enter a username or display name');
       return;
@@ -88,7 +91,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
 
   // 3. SIGN IN WITH GOOGLE
   const handleGoogleLogin = async () => {
-    soundManager.playClick();
     setLoading(true);
     setError('');
     try {

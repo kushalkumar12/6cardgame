@@ -42,11 +42,9 @@ class SoundManager {
       if (ctx.state === 'suspended') {
         ctx.resume().then(() => {
           this.isWarmedUp = true;
-          if (this.isBgmActive) this.startAmbientMusicLoop();
         }).catch(() => {});
       } else {
         this.isWarmedUp = true;
-        if (this.isBgmActive) this.startAmbientMusicLoop();
       }
     }
   }
@@ -314,19 +312,30 @@ class SoundManager {
       localStorage.setItem('six_cards_music', String(this.isBgmActive));
     } catch {}
 
-    const ctx = this.initCtx();
-    if (this.bgmGain && ctx) {
-      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
-      this.bgmGain.gain.setTargetAtTime(this.isBgmActive ? 0.16 : 0, ctx.currentTime, 0.15);
-    }
-
     if (this.isBgmActive) {
-      this.startAmbientMusicLoop();
+      this.startAmbientMusic();
     } else {
-      this.stopAmbientMusicLoop();
+      this.stopAmbientMusic();
     }
 
     return this.isBgmActive;
+  }
+
+  public startAmbientMusic(): void {
+    if (!this.isBgmActive) return;
+    const ctx = this.initCtx();
+    if (this.bgmGain && ctx) {
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+      this.bgmGain.gain.setValueAtTime(0.16, ctx.currentTime);
+    }
+    this.startAmbientMusicLoop();
+  }
+
+  public stopAmbientMusic(): void {
+    this.stopAmbientMusicLoop();
+    if (this.bgmGain && this.ctx) {
+      this.bgmGain.gain.setValueAtTime(0, this.ctx.currentTime);
+    }
   }
 
   public toggleSound(enable?: boolean): boolean {

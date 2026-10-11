@@ -47,7 +47,21 @@ initServerDatabase().catch((err) => {
   console.error('Failed to initialize database:', err);
 });
 
-// --- REST API ENDPOINTS ---
+// Root & Health Status Check
+app.get('/', async (_req, res) => {
+  try {
+    const db = await getDatabase();
+    res.json({
+      status: 'healthy',
+      service: 'Six Cards Backend Server',
+      profile: config.profile,
+      database: db.isUsingMock() ? 'in-memory-sql' : 'postgresql',
+      timestamp: Date.now(),
+    });
+  } catch (err: any) {
+    res.status(500).json({ status: 'unhealthy', error: err.message });
+  }
+});
 
 // Health & Environment Profile Status
 app.get('/api/health', async (_req, res) => {

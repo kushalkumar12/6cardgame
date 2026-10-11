@@ -43,4 +43,36 @@ describe('Server API Endpoints Integration', () => {
       // Ignored
     }
   });
+
+  it('Issue 1: ensures pendingDrawnCard is visible ONLY to the drawing player and masked for opponents', async () => {
+    const { sanitizeStateForPlayer } = await import('../../server');
+    const { GameEngine } = await import('../gameEngine');
+
+    const engine = new GameEngine({ playerNames: ['Alice', 'Bob'] });
+    engine.memorizeCards([0, 1]);
+    engine.completeMemorizationForPlayer();
+    engine.confirmPassDevice();
+    engine.memorizeCards([0, 1]);
+    engine.completeMemorizationForPlayer();
+    engine.confirmPassDevice();
+
+    engine.drawCard();
+    const rawState = engine.getState();
+    expect(rawState.pendingDrawnCard).not.toBeNull();
+    const realCard = rawState.pendingDrawnCard!;
+
+    // Player 1 (Alice) is the active player who drew the card
+    const aliceState = sanitizeStateForPlayer(rawState, 'player-1');
+    expect(aliceState.pendingDrawnCard.id).toBe(realCard.id);
+    expect(aliceState.pendingDrawnCard.rank).toBe(realCard.rank);
+    expect(aliceState.pendingDrawnCard.pointValue).toBe(realCard.pointValue);
+
+    // Player 2 (Bob) is the opponent: MUST NOT see the drawn card details!
+    const bobState = sanitizeStateForPlayer(rawState, 'player-2');
+    expect(bobState.pendingDrawnCard.rank).toBe('?');
+    expect(bobState.pendingDrawnCard.suit).toBe('?');
+    expect(bobState.pendingDrawnCard.pointValue).toBe(0);
+    expect(bobState.pendingDrawnCard.id).toBe('hidden-drawn-card');
+  });
 });
+

@@ -94,3 +94,18 @@ CREATE TABLE IF NOT EXISTS game_history (
 
 CREATE INDEX IF NOT EXISTS idx_game_history_room ON game_history(room_code);
 CREATE INDEX IF NOT EXISTS idx_game_history_created_at ON game_history(created_at DESC);
+
+-- 8. APPLICATION & SYSTEM LOGS TABLE (Externalized persistent log storage)
+CREATE TABLE IF NOT EXISTS app_logs (
+  id BIGSERIAL PRIMARY KEY,
+  timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  level VARCHAR(16) NOT NULL, -- 'INFO', 'WARN', 'ERROR', 'DEBUG'
+  source VARCHAR(32) NOT NULL DEFAULT 'backend', -- 'backend', 'frontend'
+  category VARCHAR(64) NOT NULL DEFAULT 'GENERAL', -- 'HTTP', 'SOCKET', 'GAME', 'AUTH', 'DB', 'CLIENT'
+  message TEXT NOT NULL,
+  metadata JSONB DEFAULT '{}'::jsonb
+);
+
+CREATE INDEX IF NOT EXISTS idx_app_logs_timestamp ON app_logs(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_app_logs_level ON app_logs(level);
+CREATE INDEX IF NOT EXISTS idx_app_logs_source ON app_logs(source);

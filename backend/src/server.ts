@@ -10,6 +10,7 @@ import { UserRepository } from './db/repositories/userRepo';
 import { RoomRepository } from './db/repositories/roomRepo';
 import { GameHistoryRepository } from './db/repositories/historyRepo';
 import { ConnectionRepository } from './db/repositories/connectionRepo';
+import { logger } from './utils/logger';
 
 const app = express();
 
@@ -29,6 +30,9 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+// High-fidelity structured HTTP logging for Render / Vercel
+app.use(logger.httpMiddleware());
 
 app.use(
   cors({
@@ -93,6 +97,26 @@ app.get(['/health', '/api/health'], async (_req, res) => {
     });
   } catch (err: any) {
     res.status(500).json({ status: 'unhealthy', error: err.message });
+  }
+});
+
+// Client Log Ingestion (Frontend -> Persistent Supabase Log Storage)
+app.post('/api/logs', (req, res) => {
+  const { level, category, message, metadata } = req.body || {};
+  if (message) {
+    logger.recordClientLog({ level, category, message, metadata });
+  }
+  res.json({ success: true });
+});
+
+// Query Recent Application Logs (Admin / Render Debugging)
+app.get('/api/logs', async (req, res) => {
+  try {
+    const { limit, level, source } = req.query;
+    const logs = await logger.getRecentLogs(Number(limit) || 100, level as string, source as string);
+    res.json({ count: logs.length, logs });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -408,10 +432,16 @@ interface ActiveRoom {
 
 const activeRooms: Record<string, ActiveRoom> = {};
 
-function sanitizeStateForPlayer(state: GameState, clientGamePlayerId?: string): any {
+export function sanitizeStateForPlayer(state: GameState, clientGamePlayerId?: string): any {
   const clean = JSON.parse(JSON.stringify(state));
   if (clean.gameOver) return clean; // Reveal all hands on game over
 
+  const activePlayer = clean.players[clean.currentPlayerIndex];
+  const isDrawingPlayer = Boolean(
+    clientGamePlayerId && activePlayer && activePlayer.id === clientGamePlayerId
+  );
+
+  // Mask opponents' hand cards
   clean.players = clean.players.map((p: any) => {
     if (p.id !== clientGamePlayerId) {
       p.cards = p.cards.map((_c: any, cIdx: number) => ({
@@ -423,6 +453,28 @@ function sanitizeStateForPlayer(state: GameState, clientGamePlayerId?: string): 
     }
     return p;
   });
+
+  // Mask the pending drawn card for opponents: only the player who drew the card can see it!
+  if (clean.pendingDrawnCard) {
+    if (!isDrawingPlayer) {
+      clean.pendingDrawnCard = {
+        id: 'hidden-drawn-card',
+        rank: '?',
+        suit: '?',
+        pointValue: 0,
+      };
+    }
+  }
+
+  // Mask draw pile cards so no client can inspect the remaining deck over network
+  if (Array.isArray(clean.drawPile)) {
+    clean.drawPile = clean.drawPile.map((_c: any, idx: number) => ({
+      id: `hidden-draw-${idx}`,
+      rank: '?',
+      suit: '?',
+      pointValue: 0,
+    }));
+  }
 
   return clean;
 }
@@ -545,6 +597,7 @@ io.on('connection', (socket: Socket) => {
     await RoomRepository.addParticipant(roomCode, userId, socket.id, true);
 
     socket.join(roomCode);
+    logger.info('ROOM', `Room created: ${roomCode} by ${displayName} (${userId})`, { roomCode, userId });
     callback({ success: true, roomCode, room: activeRooms[roomCode] });
   });
 
@@ -584,6 +637,7 @@ io.on('connection', (socket: Socket) => {
     await RoomRepository.addParticipant(code, userId, socket.id, false);
 
     socket.join(code);
+    logger.info('ROOM', `Player ${displayName} (${userId}) joined room ${code} (${room.players.length}/${room.maxPlayers})`, { roomCode: code, userId });
     io.to(code).emit('room_updated', room);
     callback({ success: true, roomCode: code, room });
   });
@@ -737,6 +791,10 @@ io.on('connection', (socket: Socket) => {
       });
     });
 
+    logger.info('GAME', `Match started in room ${roomCode} with ${room.players.length} players`, {
+      roomCode,
+      players: room.players.map((p) => p.displayName),
+    });
     callback({ success: true });
   });
 
@@ -745,6 +803,10 @@ io.on('connection', (socket: Socket) => {
     const room = activeRooms[roomCode];
     if (!room || !room.engine) return;
 
+    logger.info('GAME', `Room ${roomCode} action: ${actionType} by ${currentUserId || 'unknown'}`, {
+      roomCode,
+      actionType,
+    });
     const engine = room.engine;
 
     try {
@@ -890,6 +952,8 @@ io.on('connection', (socket: Socket) => {
   });
 });
 
-server.listen(config.port, '0.0.0.0', () => {
-  printProfileBanner();
-});
+if (config.profile !== 'test' && process.env.NODE_ENV !== 'test') {
+  server.listen(config.port, '0.0.0.0', () => {
+    printProfileBanner();
+  });
+}

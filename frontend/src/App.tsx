@@ -5,6 +5,7 @@ import type { GameState } from './types/game';
 import type { UserProfile, RoomPlayerInfo } from './types/user';
 import { getRequiredDeckCount } from './engine/deck';
 import { api, socket } from './services/api';
+import { logger } from './services/logger';
 
 import { Header } from './components/Header';
 import { CardView } from './components/CardView';
@@ -458,6 +459,15 @@ export const App: React.FC = () => {
     ? activePlayer?.id === myGamePlayerId
     : true;
 
+  // Issue 1: Only the active player who drew the card can see it face-up!
+  const isDrawnByCurrentClient = activeRoom
+    ? isMyTurnInNetwork
+    : (selectedMode === 'system' ? activePlayer?.id !== 'player-2' : true);
+
+  const shouldShowDrawnCardFaceUp = Boolean(
+    isDrawnByCurrentClient && !gameState.pendingDrawnCard?.id.startsWith('hidden')
+  );
+
   return (
     <div className="app-container">
       {/* AUTHENTICATION OVERLAY */}
@@ -469,6 +479,7 @@ export const App: React.FC = () => {
         onOpenRules={() => setShowRules(true)}
         onRestartGame={() => {
           if (window.confirm('Leave current game?')) {
+            logger.info('GAME', 'Player left current game and returned to mode select');
             setSelectedMode(null);
             setActiveRoom(null);
             setGameState({ ...engine.getState(), currentPhase: 'SETUP' });
@@ -711,19 +722,31 @@ export const App: React.FC = () => {
                 </span>
               </div>
 
-              {/* Drawn Card if active */}
+              {/* Drawn Card if active (Hidden from opponents!) */}
               {gameState.pendingDrawnCard && (
                 <div className="deck-pile-slot">
                   <span className="deck-pile-label" style={{ color: 'var(--emerald)' }}>
-                    Drawn Card
+                    {shouldShowDrawnCardFaceUp ? 'Your Drawn Card' : 'Drawn Card (Hidden)'}
                   </span>
                   <CardView
-                    card={gameState.pendingDrawnCard}
-                    isFaceUp
-                    label="Currently drawn card"
+                    card={shouldShowDrawnCardFaceUp ? gameState.pendingDrawnCard : null}
+                    isFaceUp={shouldShowDrawnCardFaceUp}
+                    label={
+                      shouldShowDrawnCardFaceUp
+                        ? `Currently drawn: ${gameState.pendingDrawnCard.rank} of ${gameState.pendingDrawnCard.suit}`
+                        : 'Drawn card is hidden to other players'
+                    }
                   />
-                  <span className="pile-badge">
-                    {gameState.pendingDrawnCard.pointValue} pts
+                  <span
+                    className="pile-badge"
+                    style={{
+                      color: shouldShowDrawnCardFaceUp ? 'var(--gold-light)' : 'var(--text-muted)',
+                      border: shouldShowDrawnCardFaceUp ? undefined : '1px solid rgba(255,255,255,0.1)',
+                    }}
+                  >
+                    {shouldShowDrawnCardFaceUp
+                      ? `${gameState.pendingDrawnCard.pointValue} pts`
+                      : '🔒 Secret Card'}
                   </span>
                 </div>
               )}

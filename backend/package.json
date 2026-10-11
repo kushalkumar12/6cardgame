@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "build": "echo 'Backend ready'",
     "start": "cross-env APP_PROFILE=prod tsx src/server.ts",
     "dev": "cross-env APP_PROFILE=dev tsx src/server.ts",
     "test": "cross-env APP_PROFILE=test vitest run",

@@ -5,11 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "server": "tsx server/server.ts",
+    "server": "cross-env APP_PROFILE=dev tsx server/server.ts",
+    "server:dev": "cross-env APP_PROFILE=dev tsx server/server.ts",
+    "server:prod": "cross-env APP_PROFILE=prod tsx server/server.ts",
+    "server:test": "cross-env APP_PROFILE=test tsx server/server.ts",
     "db:init": "tsx server/db/createDatabase.ts",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "test": "vitest run",
+    "test": "cross-env APP_PROFILE=test vitest run",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -30,6 +33,7 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
+    "cross-env": "^10.1.0",
     "oxlint": "^1.81.0",
     "typescript": "~6.0.2",
     "vite": "^8.3.0",

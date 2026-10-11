@@ -3,9 +3,18 @@ import { GameEngine } from '../gameEngine';
 import { AIBot } from '../aiBot';
 import { calculateHandScore } from '../scoring';
 
+function createSeededRng(seed = 42) {
+  let s = seed;
+  return () => {
+    s = (s * 1664525 + 1013904223) % 4294967296;
+    return s / 4294967296;
+  };
+}
+
 describe('Full Match Playthrough Simulation (Human vs AI)', () => {
   it('plays an entire match turn-by-turn until Human (Kushal) achieves victory', () => {
-    const engine = new GameEngine({ playerNames: ['Kushal', 'System AI'] });
+    const rng = createSeededRng(777);
+    const engine = new GameEngine({ playerNames: ['Kushal', 'System AI'] }, rng);
     const aiBot = new AIBot('player-2');
 
     const logs: string[] = [];

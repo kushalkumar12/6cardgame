@@ -1,0 +1,29 @@
+{
+  "name": "six-cards-backend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "cross-env APP_PROFILE=prod tsx src/server.ts",
+    "dev": "cross-env APP_PROFILE=dev tsx src/server.ts",
+    "test": "cross-env APP_PROFILE=test vitest run",
+    "db:init": "tsx src/db/createDatabase.ts"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "cross-env": "^10.1.0",
+    "dotenv": "^18.0.7",
+    "express": "^5.3.0",
+    "pg": "^8.23.1",
+    "socket.io": "^4.8.4"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^24.13.3",
+    "@types/pg": "^8.23.1",
+    "tsx": "^4.19.3",
+    "typescript": "~6.0.2",
+    "vitest": "^5.0.3"
+  }
+}

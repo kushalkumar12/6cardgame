@@ -3,8 +3,14 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
   "scripts": {
     "dev": "vite",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:backend": "npm --prefix backend run dev",
     "start": "cross-env APP_PROFILE=prod tsx server/server.ts",
     "server": "cross-env APP_PROFILE=dev tsx server/server.ts",
     "server:dev": "cross-env APP_PROFILE=dev tsx server/server.ts",
@@ -12,6 +18,7 @@
     "server:test": "cross-env APP_PROFILE=test tsx server/server.ts",
     "db:init": "tsx server/db/createDatabase.ts",
     "build": "tsc -b && vite build",
+    "build:frontend": "npm --prefix frontend run build",
     "lint": "oxlint",
     "test": "cross-env APP_PROFILE=test vitest run",
     "preview": "vite preview"

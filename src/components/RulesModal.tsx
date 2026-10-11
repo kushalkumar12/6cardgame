@@ -9,7 +9,14 @@ export const RulesModal: React.FC<RulesModalProps> = ({ onClose }) => {
     <div className="modal-backdrop">
       <div className="modal-dialog" style={{ maxWidth: '820px', textAlign: 'left', maxHeight: '88vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h2 style={{ margin: 0 }}>📜 Rules & How to Play</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <img
+              src="/logo.png"
+              alt="Six Cards Logo"
+              style={{ width: 34, height: 34, objectFit: 'contain', borderRadius: 8 }}
+            />
+            <h2 style={{ margin: 0 }}>📜 Rules & How to Play</h2>
+          </div>
           <button className="secondary-ghost-btn" onClick={onClose} style={{ padding: '6px 14px' }}>
             ✕ Close
           </button>

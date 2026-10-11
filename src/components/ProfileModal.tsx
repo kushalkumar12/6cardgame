@@ -390,9 +390,19 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         {/* TAB 5: ABOUT */}
         {activeTab === 'about' && (
           <div>
-            <h3 style={{ fontSize: '1.1rem', color: 'var(--gold-light)', marginBottom: 12 }}>
-              ℹ️ About Six Cards
-            </h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
+              <img
+                src="/logo.png"
+                alt="Six Cards Logo"
+                style={{ width: 48, height: 48, objectFit: 'contain', borderRadius: 10, filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.4))' }}
+              />
+              <div>
+                <h3 style={{ fontSize: '1.2rem', color: 'var(--gold-light)', margin: 0 }}>
+                  About Six Cards
+                </h3>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Official Game Edition</span>
+              </div>
+            </div>
             <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
               <strong>Six Cards</strong> is a strategic multiplayer hidden-card memory, replacement, and elimination game.
             </p>

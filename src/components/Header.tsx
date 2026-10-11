@@ -22,8 +22,12 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   return (
     <header className="app-header">
-      <div className="brand-badge">
-        <span style={{ fontSize: '1.6rem', color: 'var(--gold-primary)' }}>♠</span>
+      <div className="brand-badge" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <img
+          src="/logo.png"
+          alt="Six Cards Logo"
+          style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 8, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
+        />
         <h1 className="brand-title">Six Cards</h1>
       </div>
 

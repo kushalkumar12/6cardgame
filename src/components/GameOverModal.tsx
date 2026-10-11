@@ -49,7 +49,14 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   return (
     <div className="modal-backdrop">
       <div className="modal-dialog" style={{ maxWidth: '850px' }}>
-        <h2 style={{ fontSize: '2.2rem' }}>🏆 {reasonTitle}</h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginBottom: 12 }}>
+          <img
+            src="/logo.png"
+            alt="Six Cards Logo"
+            style={{ width: 44, height: 44, objectFit: 'contain', borderRadius: 8 }}
+          />
+          <h2 style={{ fontSize: '2.1rem', margin: 0 }}>🏆 {reasonTitle}</h2>
+        </div>
 
         <div style={{ margin: '14px 0', padding: '16px', background: 'rgba(212,175,55,0.15)', borderRadius: '12px', border: '1px solid var(--gold-primary)' }}>
           {endReason === 'ZERO_CARD_AUTOMATIC_VICTORY' ? (

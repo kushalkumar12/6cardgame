@@ -495,7 +495,14 @@ export const App: React.FC = () => {
       {gameState.currentPhase === 'SETUP' && !activeRoom && (
         <main className="setup-overlay">
           <div className="setup-card" style={{ maxWidth: '840px' }}>
-            <h1>Six Cards</h1>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginBottom: 8 }}>
+              <img
+                src="/logo.png"
+                alt="Six Cards Logo"
+                style={{ width: 56, height: 56, objectFit: 'contain', borderRadius: 12, filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.5))' }}
+              />
+              <h1 style={{ margin: 0 }}>Six Cards</h1>
+            </div>
             <p className="setup-subtitle">
               Play with System AI or jump into live Multiplayer with friends.
             </p>

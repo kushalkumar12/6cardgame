@@ -59,7 +59,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
   return (
     <div className="modal-backdrop">
       <div className="modal-dialog" style={{ maxWidth: '480px' }}>
-        <div style={{ fontSize: '2.5rem', marginBottom: 10 }}>♠️</div>
+        <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}>
+          <img
+            src="/logo.png"
+            alt="Six Cards Logo"
+            style={{ width: 68, height: 68, objectFit: 'contain', borderRadius: 14, filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.5))' }}
+          />
+        </div>
         <h2>Welcome to Six Cards</h2>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
           Sign in to access Player Profiles, Match Scoreboard, Friends list, Refer & Earn, and Online Multiplayer!

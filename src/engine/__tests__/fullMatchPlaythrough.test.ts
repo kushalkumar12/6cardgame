@@ -50,8 +50,6 @@ describe('Full Match Playthrough Simulation (Human vs AI)', () => {
         // Kushal's Strategy:
         // 1. If round > 1 and human has low estimated score, check if we can declare victory!
         const currentHandScore = calculateHandScore(state.players[0].cards);
-        const knownCount = humanKnownCards.size;
-
         const aiScore = calculateHandScore(state.players[1].cards);
         if (round >= 3 && currentHandScore <= aiScore) {
           logs.push(`[Turn ${turnCount}] Kushal declares victory! Current Hand: ${currentHandScore} pts vs AI: ${aiScore} pts.`);

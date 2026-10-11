@@ -1,15 +1,27 @@
 import { io, Socket } from 'socket.io-client';
-import type { UserProfile, FriendUser, ScoreboardEntry, NetworkInfo } from '../types/user';
+import type { UserProfile, FriendUser, ScoreboardEntry } from '../types/user';
 
-const API_BASE = '/api';
+// Profile-aware base URLs
+const SERVER_URL = import.meta.env.VITE_API_URL || '';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || SERVER_URL || undefined;
+const API_BASE = `${SERVER_URL}/api`;
 
-export const socket: Socket = io({
+export const socket: Socket = io(SOCKET_URL, {
   autoConnect: false,
+  transports: ['websocket', 'polling'],
+  withCredentials: true,
 });
 
+export interface SystemHealth {
+  status: string;
+  profile: 'dev' | 'prod' | 'test';
+  database: string;
+  timestamp: number;
+}
+
 export const api = {
-  async getNetworkInfo(): Promise<NetworkInfo> {
-    const res = await fetch(`${API_BASE}/network`);
+  async getHealth(): Promise<SystemHealth> {
+    const res = await fetch(`${API_BASE}/health`);
     return res.json();
   },
 
@@ -69,5 +81,9 @@ export const api = {
     const res = await fetch(`${API_BASE}/online-players${excludeUserId ? `?exclude=${encodeURIComponent(excludeUserId)}` : ''}`);
     return res.json();
   },
-};
 
+  async getGameHistory(): Promise<any[]> {
+    const res = await fetch(`${API_BASE}/history`);
+    return res.json();
+  },
+};

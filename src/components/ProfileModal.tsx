@@ -399,13 +399,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             <div style={{ margin: '14px 0', padding: 14, background: 'rgba(0,0,0,0.3)', borderRadius: 8, fontSize: '0.88rem', lineHeight: 1.5 }}>
               <p><strong>🌐 Modes Overview:</strong></p>
               <ul style={{ paddingLeft: 20, marginTop: 6 }}>
-                <li><strong>Mode 1: Play with System</strong> — Practice solo 1-on-1 against the intelligent System AI bot.</li>
-                <li><strong>Mode 2: Localhost & Same WiFi LAN</strong> — Connect other phones or laptops on the same WiFi router via the local network URL (<code>http://&lt;local-ip&gt;:5173</code>) for private-screen real-time multiplayer.</li>
-                <li><strong>Mode 3: Online Team & Player Search</strong> — Form teams, search players by Player ID, send live game invitations, and play online.</li>
+                <li><strong>Mode 1: Play with System (AI)</strong> — Practice solo 1-on-1 against the intelligent System AI bot.</li>
+                <li><strong>Mode 2: Multiplayer (Rooms & Friends)</strong> — Real-time multiplayer. Create private game lobbies, share quick Room Codes, search player IDs, and invite online friends across devices.</li>
               </ul>
             </div>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-              Version 2.0.0 • Google Auth Integration Ready • Built with React, TypeScript & WebSockets.
+              Version 3.0.0 • PostgreSQL / Supabase DB Backend • Profiles (Dev/Prod/Test) • Built with React 19, TypeScript & WebSockets.
             </p>
           </div>
         )}

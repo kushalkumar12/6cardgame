@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { GameEngine } from './engine/gameEngine';
 import { AIBot } from './engine/aiBot';
 import type { GameState } from './types/game';
-import type { UserProfile, NetworkInfo, RoomPlayerInfo } from './types/user';
+import type { UserProfile, RoomPlayerInfo } from './types/user';
 import { getRequiredDeckCount } from './engine/deck';
 import { api, socket } from './services/api';
 
@@ -48,9 +48,6 @@ export const App: React.FC = () => {
   const [onlinePlayers, setOnlinePlayers] = useState<{ id: string; username: string; avatar: string }[]>([]);
 
 
-  // Network info (LAN WiFi URL)
-  const [networkInfo, setNetworkInfo] = useState<NetworkInfo | null>(null);
-
   // Active UI Modals
   const [showProfile, setShowProfile] = useState(false);
   const [showRules, setShowRules] = useState(false);
@@ -68,7 +65,7 @@ export const App: React.FC = () => {
   // Multiplayer Room State
   const [activeRoom, setActiveRoom] = useState<{
     roomCode: string;
-    mode: 'lan' | 'online_team';
+    mode: 'multiplayer' | 'lan' | 'online_team';
     isHost: boolean;
     players: RoomPlayerInfo[];
   } | null>(null);
@@ -109,9 +106,9 @@ export const App: React.FC = () => {
     currentUserRef.current = currentUser;
   }, [currentUser]);
 
-  // Fetch LAN info, online players, and setup sockets
+  // Check system health, fetch online players, and setup sockets
   useEffect(() => {
-    api.getNetworkInfo().then(setNetworkInfo).catch(() => {});
+    api.getHealth().catch(() => {});
     api.getOnlinePlayers().then(setOnlinePlayers).catch(() => {});
 
     const registerSocket = () => {
@@ -500,18 +497,15 @@ export const App: React.FC = () => {
           <div className="setup-card" style={{ maxWidth: '840px' }}>
             <h1>Six Cards</h1>
             <p className="setup-subtitle">
-              Choose from 3 Play Modes: Play with System (AI), Same WiFi LAN, or Online Team.
+              Play with System AI or jump into live Multiplayer with friends.
             </p>
 
             {/* Mode Selection Cards */}
             <ModeSelect
-              networkInfo={networkInfo}
               onSelectMode={(mode) => {
                 if (mode === 'system') {
                   startSystemMatch();
-                } else if (mode === 'lan') {
-                  handleCreateRoom('lan');
-                } else if (mode === 'online_team') {
+                } else if (mode === 'multiplayer' || mode === 'online_team' || mode === 'lan') {
                   handleCreateRoom('online_team');
                 } else {
                   setSelectedMode('pass_and_play');
@@ -599,7 +593,7 @@ export const App: React.FC = () => {
             myUserId={currentUser?.id || ''}
             players={activeRoom.players}
             onlinePlayers={onlinePlayers}
-            networkInfo={networkInfo}
+            networkInfo={null}
             onToggleReady={handleToggleReady}
             onStartGame={handleStartRoomGame}
             onLeaveRoom={handleLeaveRoom}

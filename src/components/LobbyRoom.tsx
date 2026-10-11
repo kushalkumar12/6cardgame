@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
-import type { RoomPlayerInfo, NetworkInfo } from '../types/user';
+import type { RoomPlayerInfo } from '../types/user';
 
 interface LobbyRoomProps {
   roomCode: string;
-  mode: 'lan' | 'online_team';
+  mode?: 'multiplayer' | 'lan' | 'online_team';
   isHost: boolean;
   myUserId: string;
   players: RoomPlayerInfo[];
   onlinePlayers?: { id: string; username: string; avatar: string }[];
-  networkInfo: NetworkInfo | null;
+  networkInfo?: any;
   onToggleReady: () => void;
   onStartGame: () => void;
   onLeaveRoom: () => void;
@@ -17,12 +17,10 @@ interface LobbyRoomProps {
 
 export const LobbyRoom: React.FC<LobbyRoomProps> = ({
   roomCode,
-  mode,
   isHost,
   myUserId,
   players,
   onlinePlayers = [],
-  networkInfo,
   onToggleReady,
   onStartGame,
   onLeaveRoom,
@@ -76,7 +74,7 @@ export const LobbyRoom: React.FC<LobbyRoomProps> = ({
     <div className="setup-card" style={{ maxWidth: '680px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <span className="round-pill">
-          {mode === 'lan' ? '📶 Same WiFi / Localhost LAN' : '🌐 Online Team Lobby'}
+          🌐 Multiplayer Game Lobby
         </span>
         <button
           type="button"
@@ -89,22 +87,18 @@ export const LobbyRoom: React.FC<LobbyRoomProps> = ({
       </div>
 
       <div style={{ background: 'rgba(0,0,0,0.3)', padding: 16, borderRadius: 12, marginBottom: 20 }}>
-        <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Room Code:</span>
+        <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Share Room Code:</span>
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, margin: '6px 0' }}>
           <span style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--gold-light)', letterSpacing: '0.12em' }}>
             {roomCode}
           </span>
           <button type="button" className="secondary-ghost-btn" onClick={copyRoomCode}>
-            {copiedCode ? '✓ Copied' : '📋 Copy'}
+            {copiedCode ? '✓ Copied' : '📋 Copy Code'}
           </button>
         </div>
-
-        {mode === 'lan' && networkInfo && (
-          <div style={{ marginTop: 8, fontSize: '0.84rem', color: '#a7f3d0' }}>
-            📱 On another phone/device on same WiFi, open: <code>{networkInfo.lanUrl}</code> and enter code{' '}
-            <strong>{roomCode}</strong>.
-          </div>
-        )}
+        <p style={{ margin: '6px 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+          Friends can enter this Room Code to join your game instantly.
+        </p>
       </div>
 
       {/* Manual Invite by ID or Username */}

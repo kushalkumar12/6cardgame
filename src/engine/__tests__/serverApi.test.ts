@@ -3,19 +3,20 @@ import { describe, it, expect } from 'vitest';
 describe('Server API Endpoints Integration', () => {
   const SERVER_URL = 'http://localhost:3001';
 
-  it('fetches local network info for WiFi connection', async () => {
+  it('fetches system health, environment profile, and SQL database status', async () => {
     try {
-      const res = await fetch(`${SERVER_URL}/api/network`);
-      if (!res.ok) return; // Server might not be running in isolated test runner
+      const res = await fetch(`${SERVER_URL}/api/health`);
+      if (!res.ok) return;
       const data = await res.json();
-      expect(data.localIp).toBeDefined();
-      expect(data.lanUrl).toContain(data.localIp);
+      expect(data.status).toBe('healthy');
+      expect(data.profile).toBeDefined();
+      expect(data.database).toBeDefined();
     } catch {
       // Server not started in this test runner instance
     }
   });
 
-  it('registers/logs in user with unique Player ID and referral code', async () => {
+  it('registers/logs in user with unique Player ID and referral code into SQL', async () => {
     try {
       const res = await fetch(`${SERVER_URL}/api/auth/login`, {
         method: 'POST',
@@ -32,7 +33,7 @@ describe('Server API Endpoints Integration', () => {
     }
   });
 
-  it('fetches scoreboard leaderboard', async () => {
+  it('fetches scoreboard leaderboard from SQL database', async () => {
     try {
       const res = await fetch(`${SERVER_URL}/api/scoreboard`);
       if (!res.ok) return;

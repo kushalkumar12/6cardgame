@@ -2,284 +2,340 @@ import express from 'express';
 import http from 'http';
 import { Server, Socket } from 'socket.io';
 import cors from 'cors';
-import os from 'os';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import { GameEngine } from '../src/engine/gameEngine';
 import type { GameState } from '../src/types/game';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const DATA_FILE = path.join(__dirname, 'data.json');
+import { config, printProfileBanner } from './config/profiles';
+import { getDatabase } from './db/database';
+import { UserRepository } from './db/repositories/userRepo';
+import { RoomRepository } from './db/repositories/roomRepo';
+import { GameHistoryRepository } from './db/repositories/historyRepo';
+import { ConnectionRepository } from './db/repositories/connectionRepo';
 
 const app = express();
-app.use(cors());
+app.use(
+  cors({
+    origin: config.corsOrigins,
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: '*',
+    origin: config.corsOrigins,
     methods: ['GET', 'POST'],
+    credentials: true,
   },
 });
 
-const PORT = 3001;
-
-// Helper to get local WiFi/LAN IP
-function getLocalIp(): string {
-  const interfaces = os.networkInterfaces();
-  for (const name of Object.keys(interfaces)) {
-    for (const net of interfaces[name] || []) {
-      if (net.family === 'IPv4' && !net.internal) {
-        return net.address;
-      }
-    }
-  }
-  return 'localhost';
-}
-
-// User Profile Data Models
-export interface UserRecord {
-  id: string; // e.g., "P-4821"
-  username: string;
-  avatar: string;
-  authProvider: 'guest' | 'local' | 'google';
-  referralCode: string;
-  referredBy?: string;
-  referralCount: number;
-  chips: number;
-  stats: {
-    gamesPlayed: number;
-    gamesWon: number;
-    bestScore: number;
-    zeroCardWins: number;
-  };
-  friendIds: string[];
-  createdAt: number;
-}
-
-interface DBData {
-  users: Record<string, UserRecord>;
-}
-
-function loadDB(): DBData {
-  try {
-    if (fs.existsSync(DATA_FILE)) {
-      return JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
-    }
-  } catch {
-    // Return empty on failure
-  }
-  return { users: {} };
-}
-
-function saveDB(data: DBData) {
-  try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
-  } catch (err) {
-    console.error('Failed to save data.json', err);
-  }
-}
-
-const db = loadDB();
-
-// Pre-populate demo / system users for testing if empty
-if (Object.keys(db.users).length === 0) {
-  db.users['P-1001'] = {
-    id: 'P-1001',
-    username: 'System Ace',
-    avatar: '👑',
-    authProvider: 'local',
-    referralCode: 'ACE100',
-    referralCount: 4,
-    chips: 1500,
-    stats: { gamesPlayed: 24, gamesWon: 16, bestScore: 2, zeroCardWins: 3 },
-    friendIds: [],
-    createdAt: Date.now() - 86400000 * 5,
-  };
-  db.users['P-1002'] = {
-    id: 'P-1002',
-    username: 'CardShark_99',
-    avatar: '🦈',
-    authProvider: 'local',
-    referralCode: 'SHARK99',
-    referralCount: 2,
-    chips: 850,
-    stats: { gamesPlayed: 18, gamesWon: 9, bestScore: 4, zeroCardWins: 1 },
-    friendIds: [],
-    createdAt: Date.now() - 86400000 * 3,
-  };
-  saveDB(db);
-}
+// Initialize Database Schema on boot
+getDatabase().catch((err) => {
+  console.error('Failed to initialize database:', err);
+});
 
 // --- REST API ENDPOINTS ---
 
-// Network Info (for Same WiFi Localhost connection)
-app.get('/api/network', (_req, res) => {
-  const localIp = getLocalIp();
-  res.json({
-    localIp,
-    lanUrl: `http://${localIp}:5173`,
-    serverUrl: `http://${localIp}:${PORT}`,
-  });
+// Health & Environment Profile Status
+app.get('/api/health', async (_req, res) => {
+  try {
+    const db = await getDatabase();
+    res.json({
+      status: 'healthy',
+      profile: config.profile,
+      database: db.isUsingMock() ? 'in-memory-sql' : 'postgresql',
+      timestamp: Date.now(),
+    });
+  } catch (err: any) {
+    res.status(500).json({ status: 'unhealthy', error: err.message });
+  }
 });
 
 // Auth / Profile Login
-app.post('/api/auth/login', (req, res) => {
-  const { username, authProvider = 'guest', googleProfile, referralCodeInput } = req.body;
-  const name = username?.trim() || (googleProfile ? googleProfile.name : `Player_${Math.floor(1000 + Math.random() * 9000)}`);
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { username, authProvider = 'guest', googleProfile, referralCodeInput } = req.body;
+    const name =
+      username?.trim() ||
+      (googleProfile ? googleProfile.name : `Player_${Math.floor(1000 + Math.random() * 9000)}`);
 
-  // Check if existing user by username
-  let user = Object.values(db.users).find((u) => u.username.toLowerCase() === name.toLowerCase());
+    // Check if user exists by username
+    let user = await UserRepository.findByUsername(name);
 
-  if (!user) {
-    const id = `P-${Math.floor(1000 + Math.random() * 9000)}`;
-    const referralCode = `REF-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    if (!user) {
+      const id = `P-${Math.floor(1000 + Math.random() * 9000)}`;
+      const referralCode = `REF-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
-    let referredBy: string | undefined = undefined;
-    if (referralCodeInput) {
-      const referrer = Object.values(db.users).find((u) => u.referralCode === referralCodeInput.toUpperCase());
-      if (referrer) {
-        referredBy = referrer.id;
-        referrer.referralCount += 1;
-        referrer.chips += 200; // referral reward
+      let referredBy: string | null = null;
+      if (referralCodeInput) {
+        const matches = await UserRepository.search(referralCodeInput);
+        const referrer = matches.find((m) => m.referral_code === referralCodeInput.toUpperCase());
+        if (referrer) {
+          referredBy = referrer.id;
+          await UserRepository.incrementReferrals(referrer.id);
+          await UserRepository.updateChips(referrer.id, referrer.chips + 200);
+        }
       }
+
+      user = await UserRepository.create({
+        id,
+        username: name,
+        avatar: ['🃏', '♠️', '💎', '🔥', '🦁', '👑'][Math.floor(Math.random() * 6)],
+        auth_provider: authProvider,
+        referral_code: referralCode,
+        referred_by: referredBy,
+        referral_count: 0,
+        chips: 500,
+      });
     }
 
-    user = {
-      id,
-      username: name,
-      avatar: ['🃏', '♠️', '💎', '🔥', '🦁', '👑'][Math.floor(Math.random() * 6)],
-      authProvider: authProvider as any,
-      referralCode,
-      referredBy,
-      referralCount: 0,
-      chips: 500,
-      stats: { gamesPlayed: 0, gamesWon: 0, bestScore: 999, zeroCardWins: 0 },
-      friendIds: [],
-      createdAt: Date.now(),
-    };
-    db.users[user.id] = user;
-    saveDB(db);
-  }
+    const stats = await UserRepository.getStats(user.id);
+    const friends = await UserRepository.getFriends(user.id);
 
-  res.json({ success: true, user });
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        username: user.username,
+        avatar: user.avatar,
+        authProvider: user.auth_provider,
+        referralCode: user.referral_code,
+        referredBy: user.referred_by,
+        referralCount: user.referral_count,
+        chips: user.chips,
+        stats: {
+          gamesPlayed: stats.games_played,
+          gamesWon: stats.games_won,
+          bestScore: stats.best_score,
+          zeroCardWins: stats.zero_card_wins,
+        },
+        friendIds: friends.map((f) => f.id),
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Get User Profile & Stats
-app.get('/api/users/profile/:id', (req, res) => {
-  const user = db.users[req.params.id];
-  if (!user) return res.status(404).json({ error: 'User not found' });
-  res.json(user);
+app.get('/api/users/profile/:id', async (req, res) => {
+  try {
+    const user = await UserRepository.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const stats = await UserRepository.getStats(user.id);
+    const friends = await UserRepository.getFriends(user.id);
+
+    res.json({
+      id: user.id,
+      username: user.username,
+      avatar: user.avatar,
+      authProvider: user.auth_provider,
+      referralCode: user.referral_code,
+      referredBy: user.referred_by,
+      referralCount: user.referral_count,
+      chips: user.chips,
+      stats: {
+        gamesPlayed: stats.games_played,
+        gamesWon: stats.games_won,
+        bestScore: stats.best_score,
+        zeroCardWins: stats.zero_card_wins,
+      },
+      friendIds: friends.map((f) => f.id),
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Search players by ID or username
-app.get('/api/users/search', (req, res) => {
-  const query = (req.query.q as string || '').toLowerCase().trim();
-  if (!query) return res.json([]);
+app.get('/api/users/search', async (req, res) => {
+  try {
+    const query = (req.query.q as string || '').trim();
+    if (!query) return res.json([]);
 
-  const results = Object.values(db.users)
-    .filter((u) => u.id.toLowerCase().includes(query) || u.username.toLowerCase().includes(query))
-    .slice(0, 10)
-    .map((u) => ({
-      id: u.id,
-      username: u.username,
-      avatar: u.avatar,
-      stats: u.stats,
-    }));
+    const users = await UserRepository.search(query);
+    const results = await Promise.all(
+      users.slice(0, 10).map(async (u) => {
+        const stats = await UserRepository.getStats(u.id);
+        return {
+          id: u.id,
+          username: u.username,
+          avatar: u.avatar,
+          stats: {
+            gamesPlayed: stats.games_played,
+            gamesWon: stats.games_won,
+            bestScore: stats.best_score,
+            zeroCardWins: stats.zero_card_wins,
+          },
+        };
+      })
+    );
 
-  res.json(results);
+    res.json(results);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Friends list
-app.get('/api/friends/list/:userId', (req, res) => {
-  const user = db.users[req.params.userId];
-  if (!user) return res.status(404).json({ error: 'User not found' });
+app.get('/api/friends/list/:userId', async (req, res) => {
+  try {
+    const friends = await UserRepository.getFriends(req.params.userId);
+    const onlineIds = await ConnectionRepository.getOnlineUserIds();
+    const onlineSet = new Set(onlineIds);
 
-  const friends = user.friendIds
-    .map((fid) => db.users[fid])
-    .filter(Boolean)
-    .map((f) => ({
-      id: f.id,
-      username: f.username,
-      avatar: f.avatar,
-      stats: f.stats,
-      online: isUserOnline(f.id),
-    }));
+    const result = await Promise.all(
+      friends.map(async (f) => {
+        const stats = await UserRepository.getStats(f.id);
+        return {
+          id: f.id,
+          username: f.username,
+          avatar: f.avatar,
+          stats: {
+            gamesPlayed: stats.games_played,
+            gamesWon: stats.games_won,
+            bestScore: stats.best_score,
+            zeroCardWins: stats.zero_card_wins,
+          },
+          online: onlineSet.has(f.id),
+        };
+      })
+    );
 
-  res.json(friends);
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Add Friend by Player ID
-app.post('/api/friends/add', (req, res) => {
-  const { userId, targetId } = req.body;
-  const user = db.users[userId];
-  const target = db.users[targetId];
+app.post('/api/friends/add', async (req, res) => {
+  try {
+    const { userId, targetId } = req.body;
+    if (userId === targetId) {
+      return res.status(400).json({ error: 'Cannot add yourself as friend' });
+    }
 
-  if (!user || !target) {
-    return res.status(404).json({ error: 'Player ID not found' });
-  }
+    const [user, target] = await Promise.all([
+      UserRepository.findById(userId),
+      UserRepository.findById(targetId),
+    ]);
 
-  if (userId === targetId) {
-    return res.status(400).json({ error: 'Cannot add yourself as friend' });
-  }
+    if (!user || !target) {
+      return res.status(404).json({ error: 'Player ID not found' });
+    }
 
-  if (!user.friendIds.includes(targetId)) {
-    user.friendIds.push(targetId);
-  }
-  if (!target.friendIds.includes(userId)) {
-    target.friendIds.push(userId);
-  }
-  saveDB(db);
+    await Promise.all([
+      UserRepository.addFriend(userId, targetId),
+      UserRepository.addFriend(targetId, userId),
+    ]);
 
-  res.json({ success: true, friend: { id: target.id, username: target.username, avatar: target.avatar } });
+    res.json({
+      success: true,
+      friend: { id: target.id, username: target.username, avatar: target.avatar },
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Refer Code validation
-app.post('/api/refer/use', (req, res) => {
-  const { userId, referralCode } = req.body;
-  const user = db.users[userId];
-  if (!user) return res.status(404).json({ error: 'User not found' });
+app.post('/api/refer/use', async (req, res) => {
+  try {
+    const { userId, referralCode } = req.body;
+    const user = await UserRepository.findById(userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
 
-  if (user.referredBy) {
-    return res.status(400).json({ error: 'Referral code already used' });
+    if (user.referred_by) {
+      return res.status(400).json({ error: 'Referral code already used' });
+    }
+
+    const matches = await UserRepository.search(referralCode);
+    const referrer = matches.find(
+      (u) => u.referral_code === referralCode.trim().toUpperCase() && u.id !== userId
+    );
+
+    if (!referrer) {
+      return res.status(400).json({ error: 'Invalid referral code' });
+    }
+
+    await UserRepository.create({
+      ...user,
+      referred_by: referrer.id,
+      chips: user.chips + 100,
+    });
+    await UserRepository.incrementReferrals(referrer.id);
+    await UserRepository.updateChips(referrer.id, referrer.chips + 200);
+
+    res.json({ success: true, rewardChips: 100, referrerName: referrer.username });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
-
-  const referrer = Object.values(db.users).find(
-    (u) => u.referralCode.toUpperCase() === referralCode.trim().toUpperCase() && u.id !== userId
-  );
-
-  if (!referrer) {
-    return res.status(400).json({ error: 'Invalid referral code' });
-  }
-
-  user.referredBy = referrer.id;
-  user.chips += 100;
-  referrer.referralCount += 1;
-  referrer.chips += 200;
-  saveDB(db);
-
-  res.json({ success: true, rewardChips: 100, referrerName: referrer.username });
 });
 
-// Scoreboard / Global Leaderboard
-app.get('/api/scoreboard', (_req, res) => {
-  const topPlayers = Object.values(db.users)
-    .sort((a, b) => b.stats.gamesWon - a.stats.gamesWon || a.stats.bestScore - b.stats.bestScore)
-    .slice(0, 15)
-    .map((u) => ({
-      id: u.id,
-      username: u.username,
-      avatar: u.avatar,
-      stats: u.stats,
-      chips: u.chips,
+// Scoreboard / Global Leaderboard (SQL query)
+app.get('/api/scoreboard', async (_req, res) => {
+  try {
+    const allUsers = await UserRepository.getAll();
+    const withStats = await Promise.all(
+      allUsers.map(async (u) => {
+        const stats = await UserRepository.getStats(u.id);
+        return {
+          id: u.id,
+          username: u.username,
+          avatar: u.avatar,
+          stats: {
+            gamesPlayed: stats.games_played,
+            gamesWon: stats.games_won,
+            bestScore: stats.best_score,
+            zeroCardWins: stats.zero_card_wins,
+          },
+          chips: u.chips,
+        };
+      })
+    );
+
+    const sorted = withStats
+      .sort((a, b) => b.stats.gamesWon - a.stats.gamesWon || a.stats.bestScore - b.stats.bestScore)
+      .slice(0, 15);
+
+    res.json(sorted);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Game History (SQL query)
+app.get('/api/history', async (_req, res) => {
+  try {
+    const recent = await GameHistoryRepository.getRecent(15);
+    res.json(recent);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Online players list
+app.get('/api/online-players', async (req, res) => {
+  try {
+    const exclude = req.query.exclude as string | undefined;
+    const onlineIds = await ConnectionRepository.getOnlineUserIds();
+    const users = await Promise.all(
+      onlineIds.filter((id) => id !== exclude).map((id) => UserRepository.findById(id))
+    );
+    const valid = users.filter(Boolean).map((u) => ({
+      id: u!.id,
+      username: u!.username,
+      avatar: u!.avatar,
     }));
-  res.json(topPlayers);
+    res.json(valid);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// --- REAL-TIME ROOMS & MULTIPLAYER (LAN & ONLINE) ---
+// --- REAL-TIME ROOMS & MULTIPLAYER (SQL & WEBSOCKETS) ---
 
 interface RoomPlayer {
   socketId: string;
@@ -288,152 +344,27 @@ interface RoomPlayer {
   avatar: string;
   ready: boolean;
   isHost: boolean;
-  gamePlayerId?: string; // e.g. "player-1"
+  gamePlayerId?: string;
 }
 
-interface Room {
+interface ActiveRoom {
   roomCode: string;
-  mode: 'lan' | 'online_team';
   hostId: string;
   players: RoomPlayer[];
   maxPlayers: number;
   status: 'lobby' | 'playing' | 'ended';
   engine: GameEngine | null;
+  startTime?: number;
 }
 
-const rooms: Record<string, Room> = {};
+const activeRooms: Record<string, ActiveRoom> = {};
 
-// Robust multi-socket tracking per user
-// normalized userId (uppercase, no #) -> Set of active socket IDs
-const userSockets = new Map<string, Set<string>>();
-// socketId -> user metadata
-const socketToUser = new Map<string, { userId: string; username: string; avatar: string }>();
-
-function normalizeId(idOrName: string): string {
-  return idOrName.trim().replace(/^#/, '').toUpperCase();
-}
-
-/**
- * Intelligently finds a user in DB or active sockets by ID, normalized ID, or username.
- */
-function findTargetUserAndSockets(query: string): {
-  foundUser: { id: string; username: string; avatar: string } | null;
-  socketIds: string[];
-} {
-  const qClean = query.trim().replace(/^#/, '');
-  const qUpper = qClean.toUpperCase();
-  const qLower = qClean.toLowerCase();
-
-  // 1. Check DB users
-  let targetUser: UserRecord | undefined = undefined;
-
-  // Exact ID match
-  targetUser = Object.values(db.users).find((u) => u.id.toUpperCase() === qUpper);
-
-  // Match with 'P-' added or removed
-  if (!targetUser) {
-    if (!qUpper.startsWith('P-')) {
-      targetUser = Object.values(db.users).find((u) => u.id.toUpperCase() === `P-${qUpper}`);
-    } else {
-      targetUser = Object.values(db.users).find((u) => u.id.toUpperCase().replace(/^P-/, '') === qUpper.replace(/^P-/, ''));
-    }
-  }
-
-  // Match by username (case-insensitive)
-  if (!targetUser) {
-    targetUser = Object.values(db.users).find((u) => u.username.toLowerCase() === qLower);
-  }
-
-  // Partial username match if unique
-  if (!targetUser) {
-    const matches = Object.values(db.users).filter((u) => u.username.toLowerCase().includes(qLower));
-    if (matches.length === 1) {
-      targetUser = matches[0];
-    }
-  }
-
-  // If found in DB, collect active socket IDs
-  if (targetUser) {
-    const sids = Array.from(userSockets.get(normalizeId(targetUser.id)) || []);
-    return {
-      foundUser: { id: targetUser.id, username: targetUser.username, avatar: targetUser.avatar },
-      socketIds: sids,
-    };
-  }
-
-  // 2. Check active connected sockets directly by ID or username
-  for (const [sid, meta] of socketToUser.entries()) {
-    const userNorm = normalizeId(meta.userId);
-    const idMatches =
-      userNorm === qUpper ||
-      userNorm === `P-${qUpper}` ||
-      userNorm.replace(/^P-/, '') === qUpper.replace(/^P-/, '');
-    const nameMatches =
-      meta.username.toLowerCase() === qLower ||
-      meta.username.toLowerCase().includes(qLower);
-
-    if (idMatches || nameMatches) {
-      const sids = Array.from(userSockets.get(userNorm) || [sid]);
-      return {
-        foundUser: { id: meta.userId, username: meta.username, avatar: meta.avatar },
-        socketIds: sids,
-      };
-    }
-  }
-
-  return { foundUser: null, socketIds: [] };
-}
-
-function getOnlineUsersList(excludeUserId?: string): { id: string; username: string; avatar: string }[] {
-  const result: { id: string; username: string; avatar: string }[] = [];
-  const seenIds = new Set<string>();
-
-  for (const [normId, sids] of userSockets.entries()) {
-    if (sids.size === 0) continue;
-    if (excludeUserId && normId === normalizeId(excludeUserId)) continue;
-
-    // Look up in DB first
-    const dbUser = Object.values(db.users).find((u) => normalizeId(u.id) === normId);
-    if (dbUser) {
-      if (!seenIds.has(dbUser.id)) {
-        seenIds.add(dbUser.id);
-        result.push({ id: dbUser.id, username: dbUser.username, avatar: dbUser.avatar });
-      }
-    } else {
-      const firstSid = Array.from(sids)[0];
-      const meta = firstSid ? socketToUser.get(firstSid) : null;
-      if (meta && !seenIds.has(meta.userId)) {
-        seenIds.add(meta.userId);
-        result.push({ id: meta.userId, username: meta.username, avatar: meta.avatar });
-      }
-    }
-  }
-
-  return result;
-}
-
-function isUserOnline(userId: string): boolean {
-  const sids = userSockets.get(normalizeId(userId));
-  return Boolean(sids && sids.size > 0);
-}
-
-// REST API for online players list
-app.get('/api/online-players', (req, res) => {
-  const exclude = req.query.exclude as string | undefined;
-  res.json(getOnlineUsersList(exclude));
-});
-
-/**
- * Sanitizes game state for a specific client socket so opponents' hidden cards
- * are NOT transmitted over the network (100% privacy preservation).
- */
 function sanitizeStateForPlayer(state: GameState, clientGamePlayerId?: string): any {
   const clean = JSON.parse(JSON.stringify(state));
   if (clean.gameOver) return clean; // Reveal all hands on game over
 
   clean.players = clean.players.map((p: any) => {
     if (p.id !== clientGamePlayerId) {
-      // Opponent cards: hide rank, suit, pointValue
       p.cards = p.cards.map((_c: any) => ({
         id: 'hidden',
         rank: '?',
@@ -447,42 +378,72 @@ function sanitizeStateForPlayer(state: GameState, clientGamePlayerId?: string): 
   return clean;
 }
 
+async function broadcastOnlineList() {
+  try {
+    const onlineIds = await ConnectionRepository.getOnlineUserIds();
+    const users = await Promise.all(onlineIds.map((id) => UserRepository.findById(id)));
+    const list = users.filter(Boolean).map((u) => ({
+      id: u!.id,
+      username: u!.username,
+      avatar: u!.avatar,
+    }));
+    io.emit('online_players_update', list);
+  } catch {
+    // Suppress broadcast errors
+  }
+}
+
 io.on('connection', (socket: Socket) => {
   let currentUserId: string | null = null;
   let currentRoomCode: string | null = null;
 
-  // Register user with robust multi-socket support
-  socket.on('register_user', (payload: any) => {
+  // Register user connection into SQL connections table
+  socket.on('register_user', async (payload: any) => {
     const userId = typeof payload === 'string' ? payload : payload?.userId;
     const username = typeof payload === 'object' ? payload?.username : undefined;
     const avatar = typeof payload === 'object' ? payload?.avatar : undefined;
-
     if (!userId) return;
 
     currentUserId = userId;
-    const normId = normalizeId(userId);
+    await ConnectionRepository.register(socket.id, userId);
 
-    if (!userSockets.has(normId)) {
-      userSockets.set(normId, new Set());
+    if (username) {
+      const existing = await UserRepository.findById(userId);
+      if (existing) {
+        await UserRepository.create({
+          ...existing,
+          username,
+          avatar: avatar || existing.avatar,
+        });
+      } else {
+        await UserRepository.create({
+          id: userId,
+          username,
+          avatar: avatar || '🃏',
+          auth_provider: 'guest',
+          referral_code: `REF-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+          referral_count: 0,
+          chips: 1000,
+        });
+      }
     }
-    userSockets.get(normId)!.add(socket.id);
 
-    // Save metadata
-    const userMeta = {
-      userId,
-      username: username || db.users[userId]?.username || `Player_${userId}`,
-      avatar: avatar || db.users[userId]?.avatar || '🃏',
-    };
-    socketToUser.set(socket.id, userMeta);
-
-    // Broadcast presence update and full online list to all connected clients
     io.emit('user_presence_change', { userId, online: true });
-    io.emit('online_players_update', getOnlineUsersList());
+    await broadcastOnlineList();
   });
 
   // Request online players list
-  socket.on('get_online_players', (_data: any, callback?: Function) => {
-    const list = getOnlineUsersList(currentUserId || undefined);
+  socket.on('get_online_players', async (_data: any, callback?: Function) => {
+    const onlineIds = await ConnectionRepository.getOnlineUserIds();
+    const users = await Promise.all(
+      onlineIds.filter((id) => id !== currentUserId).map((id) => UserRepository.findById(id))
+    );
+    const list = users.filter(Boolean).map((u) => ({
+      id: u!.id,
+      username: u!.username,
+      avatar: u!.avatar,
+    }));
+
     if (typeof callback === 'function') {
       callback(list);
     } else {
@@ -490,8 +451,8 @@ io.on('connection', (socket: Socket) => {
     }
   });
 
-  // Create room
-  socket.on('create_room', ({ userId, displayName, avatar, maxPlayers = 4, mode = 'lan' }: any, callback: Function) => {
+  // Create room (Persisted to SQL `rooms` table)
+  socket.on('create_room', async ({ userId, displayName, avatar, maxPlayers = 4 }: any, callback: Function) => {
     const roomCode = Math.random().toString(36).substring(2, 6).toUpperCase();
     currentRoomCode = roomCode;
 
@@ -504,9 +465,8 @@ io.on('connection', (socket: Socket) => {
       isHost: true,
     };
 
-    rooms[roomCode] = {
+    activeRooms[roomCode] = {
       roomCode,
-      mode,
       hostId: userId,
       players: [hostPlayer],
       maxPlayers,
@@ -514,14 +474,17 @@ io.on('connection', (socket: Socket) => {
       engine: null,
     };
 
+    await RoomRepository.create(roomCode, userId, { maxPlayers });
+    await RoomRepository.addParticipant(roomCode, userId, socket.id, true);
+
     socket.join(roomCode);
-    callback({ success: true, roomCode, room: rooms[roomCode] });
+    callback({ success: true, roomCode, room: activeRooms[roomCode] });
   });
 
-  // Join room by room code
-  socket.on('join_room', ({ roomCode, userId, displayName, avatar }: any, callback: Function) => {
+  // Join room by code
+  socket.on('join_room', async ({ roomCode, userId, displayName, avatar }: any, callback: Function) => {
     const code = roomCode?.trim().toUpperCase();
-    const room = rooms[code];
+    const room = activeRooms[code];
 
     if (!room) {
       return callback({ success: false, error: 'Room not found' });
@@ -535,7 +498,6 @@ io.on('connection', (socket: Socket) => {
       return callback({ success: false, error: 'Room is full' });
     }
 
-    // Check if already in room
     const existing = room.players.find((p) => p.userId === userId);
     if (!existing) {
       const newPlayer: RoomPlayer = {
@@ -552,15 +514,16 @@ io.on('connection', (socket: Socket) => {
     }
 
     currentRoomCode = code;
-    socket.join(code);
+    await RoomRepository.addParticipant(code, userId, socket.id, false);
 
+    socket.join(code);
     io.to(code).emit('room_updated', room);
     callback({ success: true, roomCode: code, room });
   });
 
-  // Toggle ready
+  // Toggle ready status
   socket.on('toggle_ready', ({ roomCode, userId }: any) => {
-    const room = rooms[roomCode];
+    const room = activeRooms[roomCode];
     if (!room) return;
     const player = room.players.find((p) => p.userId === userId);
     if (player) {
@@ -569,29 +532,30 @@ io.on('connection', (socket: Socket) => {
     }
   });
 
-  // Invite player by their Player ID or Username (Intelligent matching)
-  socket.on('invite_player', ({ roomCode, targetPlayerId, fromName, fromUserId }: any, callback: Function) => {
+  // Invite player with fuzzy matching and SQL socket tracking
+  socket.on('invite_player', async ({ roomCode, targetPlayerId, fromName, fromUserId }: any, callback: Function) => {
     if (!targetPlayerId || !targetPlayerId.trim()) {
       return callback({ success: false, error: 'Please enter a valid Player ID or username' });
     }
 
-    const { foundUser, socketIds } = findTargetUserAndSockets(targetPlayerId);
+    const matches = await UserRepository.search(targetPlayerId);
+    const targetUser = matches[0];
 
-    if (!foundUser) {
+    if (!targetUser) {
       return callback({
         success: false,
         error: `Player "${targetPlayerId}" was not found. Please check the ID or username.`,
       });
     }
 
+    const socketIds = await ConnectionRepository.getSocketsForUser(targetUser.id);
     if (socketIds.length === 0) {
       return callback({
         success: false,
-        error: `${foundUser.username} (${foundUser.id}) is currently offline.`,
+        error: `${targetUser.username} (${targetUser.id}) is currently offline.`,
       });
     }
 
-    // Send invitation to all connected sockets of that user!
     for (const sid of socketIds) {
       io.to(sid).emit('received_invitation', {
         roomCode,
@@ -603,33 +567,33 @@ io.on('connection', (socket: Socket) => {
 
     callback({
       success: true,
-      targetName: foundUser.username,
-      targetId: foundUser.id,
+      targetName: targetUser.username,
+      targetId: targetUser.id,
     });
   });
 
   // Start game from lobby
-  socket.on('start_room_game', ({ roomCode }: any, callback: Function) => {
-    const room = rooms[roomCode];
+  socket.on('start_room_game', async ({ roomCode }: any, callback: Function) => {
+    const room = activeRooms[roomCode];
     if (!room) return callback({ success: false, error: 'Room not found' });
 
     if (room.players.length < 2) {
       return callback({ success: false, error: 'Need at least 2 players to start' });
     }
 
-    // Initialize GameEngine
     const playerNames = room.players.map((p) => p.displayName);
     const engine = new GameEngine({ playerNames });
     room.engine = engine;
     room.status = 'playing';
+    room.startTime = Date.now();
 
-    // Map room players to engine player IDs ("player-1", "player-2", ...)
     room.players.forEach((p, idx) => {
       p.gamePlayerId = `player-${idx + 1}`;
     });
 
-    // Notify room and broadcast customized secret state to each player
     const state = engine.getState();
+    await RoomRepository.updateState(roomCode, state);
+
     room.players.forEach((p) => {
       const personalState = sanitizeStateForPlayer(state, p.gamePlayerId);
       io.to(p.socketId).emit('game_started', {
@@ -642,9 +606,9 @@ io.on('connection', (socket: Socket) => {
     callback({ success: true });
   });
 
-  // Execute in-game action on server authoritative engine
-  socket.on('room_action', ({ roomCode, actionType, payload }: any) => {
-    const room = rooms[roomCode];
+  // Execute in-game turn action
+  socket.on('room_action', async ({ roomCode, actionType, payload }: any) => {
+    const room = activeRooms[roomCode];
     if (!room || !room.engine) return;
 
     const engine = room.engine;
@@ -691,30 +655,57 @@ io.on('connection', (socket: Socket) => {
         engine.declareVictory();
       }
 
-      // Check if game ended and update player records
       const updatedState = engine.getState();
+      await RoomRepository.updateState(roomCode, updatedState);
+
+      // Game Over: Record into SQL History & update player stats
       if (updatedState.gameOver) {
         room.status = 'ended';
-        // Update user stats
-        room.players.forEach((p, idx) => {
-          const gameId = `player-${idx + 1}`;
-          const isWinner = updatedState.winnerIds.includes(gameId);
-          const userRec = db.users[p.userId];
-          if (userRec) {
-            userRec.stats.gamesPlayed += 1;
+        await RoomRepository.updateStatus(roomCode, 'FINISHED');
+
+        const now = Date.now();
+        const winnerUserIds: string[] = [];
+
+        // Update stats for all participating users in SQL
+        await Promise.all(
+          room.players.map(async (p, idx) => {
+            const gamePlayerId = `player-${idx + 1}`;
+            const isWinner = updatedState.winnerIds.includes(gamePlayerId);
+            if (isWinner) winnerUserIds.push(p.userId);
+
+            const handScore = updatedState.players[idx]?.cards.reduce(
+              (sum, c) => sum + c.pointValue,
+              0
+            ) ?? 99;
+            const isZeroCard = updatedState.endReason === 'ZERO_CARD_AUTOMATIC_VICTORY';
+
+            await UserRepository.recordMatchStats(p.userId, isWinner, handScore, isZeroCard);
             if (isWinner) {
-              userRec.stats.gamesWon += 1;
-              userRec.chips += 100;
-              if (updatedState.endReason === 'ZERO_CARD_AUTOMATIC_VICTORY') {
-                userRec.stats.zeroCardWins += 1;
-              }
+              const u = await UserRepository.findById(p.userId);
+              if (u) await UserRepository.updateChips(p.userId, u.chips + 100);
             }
-          }
+          })
+        );
+
+        // Record into SQL `game_history`
+        await GameHistoryRepository.record({
+          room_code: roomCode,
+          mode: 'multiplayer',
+          start_time: room.startTime || now,
+          end_time: now,
+          end_reason: updatedState.endReason || 'UNKNOWN',
+          winner_ids: winnerUserIds,
+          participants: room.players.map((p, idx) => ({
+            userId: p.userId,
+            displayName: p.displayName,
+            score: updatedState.players[idx]?.cards.reduce((sum, c) => sum + c.pointValue, 0) ?? 0,
+            cardsLeft: updatedState.players[idx]?.cards.length ?? 0,
+          })),
+          round_count: updatedState.roundNumber,
         });
-        saveDB(db);
       }
 
-      // Broadcast sanitized state to each player
+      // Broadcast sanitized personal state to each player
       room.players.forEach((p) => {
         const personalState = sanitizeStateForPlayer(updatedState, p.gamePlayerId);
         io.to(p.socketId).emit('room_state_update', {
@@ -727,27 +718,27 @@ io.on('connection', (socket: Socket) => {
     }
   });
 
-  socket.on('disconnect', () => {
-    socketToUser.delete(socket.id);
+  socket.on('disconnect', async () => {
+    await ConnectionRepository.remove(socket.id);
 
     if (currentUserId) {
-      const normId = normalizeId(currentUserId);
-      const sids = userSockets.get(normId);
-      if (sids) {
-        sids.delete(socket.id);
-        if (sids.size === 0) {
-          userSockets.delete(normId);
-          io.emit('user_presence_change', { userId: currentUserId, online: false });
-        }
+      const remaining = await ConnectionRepository.getSocketsForUser(currentUserId);
+      if (remaining.length === 0) {
+        io.emit('user_presence_change', { userId: currentUserId, online: false });
       }
-      io.emit('online_players_update', getOnlineUsersList());
+      await broadcastOnlineList();
     }
 
-    if (currentRoomCode && rooms[currentRoomCode]) {
-      const room = rooms[currentRoomCode];
+    if (currentRoomCode && activeRooms[currentRoomCode]) {
+      const room = activeRooms[currentRoomCode];
       room.players = room.players.filter((p) => p.socketId !== socket.id);
+      if (currentUserId) {
+        await RoomRepository.removeParticipant(currentRoomCode, currentUserId);
+      }
+
       if (room.players.length === 0) {
-        delete rooms[currentRoomCode];
+        delete activeRooms[currentRoomCode];
+        await RoomRepository.delete(currentRoomCode);
       } else {
         if (room.hostId === currentUserId && room.players.length > 0) {
           room.hostId = room.players[0].userId;
@@ -759,11 +750,6 @@ io.on('connection', (socket: Socket) => {
   });
 });
 
-server.listen(PORT, '0.0.0.0', () => {
-  const localIp = getLocalIp();
-  console.log(`=========================================`);
-  console.log(` Six Cards Game Server running on:`);
-  console.log(` Local:   http://localhost:${PORT}`);
-  console.log(` LAN/WiFi: http://${localIp}:${PORT}`);
-  console.log(`=========================================`);
+server.listen(config.port, '0.0.0.0', () => {
+  printProfileBanner();
 });

@@ -36,11 +36,27 @@ export interface ProfileConfig {
   secureCookies: boolean;
 }
 
-function resolveDatabaseUrl(): string {
-  if (currentProfile === 'test') {
-    return process.env.TEST_DATABASE_URL || process.env.DATABASE_URL || 'postgresql://postgres:admin@localhost:5432/6cardgame';
+export function sanitizeDatabaseUrl(rawUrl: string): string {
+  if (!rawUrl) return rawUrl;
+  const match = rawUrl.match(/^(postgres(?:ql)?:\/\/)([^:]+):(.*)@([^@\/]+(?::\d+)?(?:(?:\/|\?).*)?)$/);
+  if (!match) return rawUrl;
+  const [, prefix, user, pass, rest] = match;
+  let decodedPass = pass;
+  try {
+    decodedPass = decodeURIComponent(pass);
+  } catch {
+    decodedPass = pass;
   }
-  return process.env.DATABASE_URL || 'postgresql://postgres:admin@localhost:5432/6cardgame';
+  const encodedPass = encodeURIComponent(decodedPass);
+  return `${prefix}${user}:${encodedPass}@${rest}`;
+}
+
+function resolveDatabaseUrl(): string {
+  let url = process.env.DATABASE_URL || 'postgresql://postgres:admin@localhost:5432/6cardgame';
+  if (currentProfile === 'test') {
+    url = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL || 'postgresql://postgres:admin@localhost:5432/6cardgame';
+  }
+  return sanitizeDatabaseUrl(url);
 }
 
 function resolveSsl(url: string): boolean | { rejectUnauthorized: boolean } {

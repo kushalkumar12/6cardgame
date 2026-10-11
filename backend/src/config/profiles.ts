@@ -67,17 +67,16 @@ function resolveSsl(url: string): boolean | { rejectUnauthorized: boolean } {
   return false;
 }
 
-function resolveCorsOrigins(): string[] | string {
+function resolveCorsOrigins(): any {
   if (currentProfile === 'prod') {
     const allowed = process.env.ALLOWED_ORIGINS;
-    if (allowed) {
+    if (allowed && allowed !== '*') {
       return allowed.split(',').map((o) => o.trim());
     }
-    // Default to origin reflection or specified Vercel app domain
-    return process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : '*';
+    // Return true to reflect origin (required for CORS when credentials: true)
+    return true;
   }
-  // In dev / test allow local frontend dev servers
-  return ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173', '*'];
+  return true;
 }
 
 export const config: ProfileConfig = {

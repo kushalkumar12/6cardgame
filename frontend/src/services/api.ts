@@ -1,9 +1,15 @@
 import { io, Socket } from 'socket.io-client';
 import type { UserProfile, FriendUser, ScoreboardEntry } from '../types/user';
 
-// Profile-aware base URLs
-const SERVER_URL = import.meta.env.VITE_API_URL || '';
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || SERVER_URL || undefined;
+// Profile-aware base URLs with live Render production fallback
+const DEFAULT_PROD_URL = 'https://sixcardgame.onrender.com';
+const SERVER_URL =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD ? DEFAULT_PROD_URL : 'http://localhost:3001');
+const SOCKET_URL =
+  import.meta.env.VITE_SOCKET_URL ||
+  SERVER_URL ||
+  (import.meta.env.PROD ? DEFAULT_PROD_URL : 'http://localhost:3001');
 const API_BASE = `${SERVER_URL}/api`;
 
 export const socket: Socket = io(SOCKET_URL, {

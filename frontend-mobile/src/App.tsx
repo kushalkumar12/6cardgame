@@ -492,10 +492,25 @@ export const App: React.FC = () => {
     isMyTurnInNetwork && !gameState.pendingDrawnCard?.id.startsWith('hidden')
   );
 
+  if (!currentUser) {
+    return (
+      <div className="phone-wrapper">
+        <AuthModal
+          onSuccess={(u) => {
+            soundManager.playClick();
+            setCurrentUser(u);
+            try {
+              sessionStorage.setItem(USER_SESSION_KEY, JSON.stringify(u));
+              localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(u));
+            } catch {}
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="phone-wrapper">
-      {/* AUTHENTICATION OVERLAY */}
-      {!currentUser && <AuthModal onSuccess={(u) => setCurrentUser(u)} />}
 
       {/* HEADER BAR (Six Cards, 6-Dots button, Smiley Avatar) */}
       <Header

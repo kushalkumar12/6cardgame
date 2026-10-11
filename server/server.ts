@@ -382,8 +382,8 @@ function sanitizeStateForPlayer(state: GameState, clientGamePlayerId?: string): 
 
   clean.players = clean.players.map((p: any) => {
     if (p.id !== clientGamePlayerId) {
-      p.cards = p.cards.map((_c: any) => ({
-        id: 'hidden',
+      p.cards = p.cards.map((_c: any, cIdx: number) => ({
+        id: `hidden-${p.id}-${cIdx}`,
         rank: '?',
         suit: '?',
         pointValue: 0,

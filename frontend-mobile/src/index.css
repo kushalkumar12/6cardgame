@@ -1,0 +1,1121 @@
+/* ========================================================
+   SIX CARDS - MOBILE PHONE UI/UX DESIGN SYSTEM (V2)
+   Dark Navy Blue Theme with Theater Masks Aesthetics
+   ======================================================== */
+
+:root {
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  /* Theme Palette */
+  --bg-app: #060b14;
+  --bg-frame: #070e1b;
+  --bg-surface: #0c1626;
+  --bg-surface-elevated: #112035;
+  --bg-surface-hover: #162740;
+
+  /* Borders */
+  --border-subtle: #162740;
+  --border-card: #1a2f4c;
+  --border-active: #2563eb;
+  --border-cyan: #38bdf8;
+
+  /* Brand Accents */
+  --blue-primary: #1d68d8;
+  --blue-vibrant: #2563eb;
+  --blue-sky: #38bdf8;
+  --blue-glow: rgba(37, 99, 235, 0.4);
+  --red-accent: #ef4444;
+  --emerald-accent: #10b981;
+
+  /* Typography */
+  --text-white: #ffffff;
+  --text-muted: #8e9eb3;
+  --text-dim: #64748b;
+
+  /* Geometry */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  --transition-fast: 0.16s ease-out;
+  --transition-normal: 0.25s ease-out;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: #03060a;
+  color: var(--text-white);
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  user-select: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  user-select: none;
+  touch-action: manipulation;
+  transition: transform var(--transition-fast), opacity var(--transition-fast), background-color var(--transition-fast);
+}
+
+button:active {
+  transform: scale(0.97);
+}
+
+/* ========================================================
+   PHONE CONTAINER & FRAME (EXACT PHONE PROPORTIONS)
+   ======================================================== */
+
+.phone-wrapper {
+  width: 100%;
+  max-width: 440px;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-app);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 0 50px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+@media (min-width: 480px) {
+  body {
+    padding: 20px 0;
+    background: radial-gradient(circle at 50% 30%, #0d1b30 0%, #050a12 60%, #020408 100%);
+  }
+
+  .phone-wrapper {
+    min-height: 880px;
+    height: 92vh;
+    max-height: 920px;
+    border-radius: 44px;
+    border: 8px solid #1f293d;
+    box-shadow: 0 25px 70px rgba(0, 0, 0, 0.9), 0 0 0 2px rgba(255, 255, 255, 0.08);
+  }
+}
+
+.app-container,
+.app-content-area {
+  width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* ========================================================
+   APP HEADER (TOP BAR)
+   ======================================================== */
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px 10px;
+  background-color: var(--bg-app);
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.brand-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  display: flex;
+  gap: 5px;
+}
+
+.brand-six {
+  color: var(--text-white);
+}
+
+.brand-cards {
+  color: var(--blue-sky);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* 6-Dots Button (Dice/Drawer Icon) */
+.header-dots-btn {
+  width: 36px;
+  height: 36px;
+  background-color: var(--bg-surface);
+  border: 1.5px solid var(--border-card);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.header-dots-btn:hover {
+  border-color: var(--border-cyan);
+  background-color: var(--bg-surface-elevated);
+}
+
+/* Profile Avatar Button (Smiley Face) */
+.header-avatar-btn {
+  width: 36px;
+  height: 36px;
+  background-color: var(--bg-surface);
+  border: 1.5px solid var(--border-cyan);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.header-avatar-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 12px var(--blue-glow);
+}
+
+/* ========================================================
+   BOTTOM NAVIGATION BAR (ROOM, MUSIC, AUDIO)
+   ======================================================== */
+
+.app-bottom-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 24px 16px;
+  background-color: var(--bg-app);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  margin-top: auto;
+  flex-shrink: 0;
+  z-index: 60;
+}
+
+.bottom-bar-icon-btn {
+  background: none;
+  border: none;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-white);
+  border-radius: 50%;
+}
+
+.bottom-bar-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.bottom-bar-room-pill {
+  min-width: 130px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background-color: var(--bg-surface);
+  border: 1.5px solid #1e40af;
+  color: var(--text-white);
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.bottom-bar-room-pill:hover {
+  background-color: var(--bg-surface-elevated);
+  border-color: var(--blue-sky);
+  box-shadow: 0 0 14px rgba(37, 99, 235, 0.35);
+}
+
+/* Subtle Exit Button (Gameplay mode - unobtrusive & less visible) */
+.bottom-bar-exit-subtle-btn {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(148, 163, 184, 0.65);
+  font-size: 0.76rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 4px 14px;
+  border-radius: var(--radius-full);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+}
+
+.bottom-bar-exit-subtle-btn:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #cbd5e1;
+}
+
+/* ========================================================
+   SCREEN 1: MODE SELECT (PLAY WITH BOT / MULTIPLAYER)
+   ======================================================== */
+
+.setup-scroll-content {
+  flex: 1;
+  padding: 16px 18px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.mode-select-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.mode-card {
+  background-color: var(--bg-surface);
+  border: 1.5px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+}
+
+.mode-card:hover {
+  border-color: var(--blue-vibrant);
+  background-color: var(--bg-surface-elevated);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.mode-card-icon-circle {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #ffffff 0%, #dbeafe 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.mode-card-info {
+  flex: 1;
+}
+
+.mode-card-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-white);
+  margin-bottom: 4px;
+}
+
+.mode-card-subtitle {
+  font-size: 0.86rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.mode-card-arrow {
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: #112035;
+  border: 1px solid var(--border-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform var(--transition-fast);
+}
+
+.mode-card:hover .mode-card-arrow {
+  transform: translateY(-50%) translateX(3px);
+  background-color: var(--blue-primary);
+}
+
+/* Secondary options drawer */
+.quick-join-box {
+  background-color: rgba(12, 22, 38, 0.6);
+  border: 1px dashed var(--border-card);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  margin-top: 6px;
+}
+
+.quick-join-input-group {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.phone-text-input {
+  flex: 1;
+  background-color: #08101d;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-sm);
+  color: var(--text-white);
+  padding: 10px 14px;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  outline: none;
+}
+
+.phone-text-input:focus {
+  border-color: var(--blue-sky);
+}
+
+.phone-action-btn {
+  background-color: var(--blue-primary);
+  color: var(--text-white);
+  border-radius: var(--radius-sm);
+  padding: 10px 18px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+/* ========================================================
+   SCREEN 2: INITIAL MEMORIZE MODAL
+   ======================================================== */
+
+.memorize-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 9, 17, 0.88);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  z-index: 100;
+}
+
+.memorize-modal-card {
+  width: 100%;
+  max-width: 380px;
+  background-color: var(--bg-surface);
+  border: 1.5px solid var(--border-card);
+  border-radius: var(--radius-xl);
+  padding: 32px 18px 24px;
+  position: relative;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+  animation: modalPop 0.22s ease-out;
+}
+
+@keyframes modalPop {
+  0% { transform: scale(0.92); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.modal-close-circle-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background-color: var(--red-accent);
+  color: var(--text-white);
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.5);
+  transition: transform var(--transition-fast);
+}
+
+.modal-close-circle-btn:hover {
+  transform: scale(1.1);
+}
+
+.memorize-modal-title {
+  color: var(--text-white);
+  font-size: 1.08rem;
+  font-weight: 600;
+  margin-bottom: 24px;
+  letter-spacing: -0.01em;
+}
+
+.memorize-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px 10px;
+  margin: 0 auto 28px;
+  max-width: 320px;
+  justify-items: center;
+}
+
+.memorize-card-item {
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+}
+
+.memorize-card-item:hover {
+  transform: translateY(-2px);
+}
+
+.memorize-card-item.is-selected .card-frame {
+  box-shadow: 0 0 0 2px var(--blue-sky);
+}
+
+.memorize-confirm-btn {
+  min-width: 170px;
+  height: 44px;
+  border-radius: var(--radius-full);
+  background-color: var(--blue-primary);
+  color: var(--text-white);
+  font-size: 0.98rem;
+  font-weight: 600;
+  padding: 0 32px;
+  margin: 0 auto;
+  display: block;
+  box-shadow: 0 6px 18px rgba(29, 104, 216, 0.4);
+}
+
+.memorize-confirm-btn:hover {
+  background-color: var(--blue-vibrant);
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.5);
+}
+
+/* ========================================================
+   SCREEN 3: GAMEPLAY ARENA & PLAYER MATS
+   ======================================================== */
+
+.gameplay-screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 10px 14px 12px;
+  gap: 10px;
+}
+
+/* Player Containers ("Bot" and "You") */
+.player-box {
+  background-color: var(--bg-surface);
+  border: 1.5px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  padding: 12px 12px 14px;
+  position: relative;
+  transition: border-color var(--transition-fast);
+}
+
+.player-box.active-turn-box {
+  border-color: var(--blue-vibrant);
+  box-shadow: 0 0 16px rgba(37, 99, 235, 0.25);
+}
+
+/* ========================================================
+   GEMINI AI GRADIENT ANIMATED ACTIVE TURN BORDER
+   ======================================================== */
+@keyframes gemini-gradient-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes gemini-glow-pulse {
+  0%, 100% {
+    box-shadow: 
+      0 0 16px rgba(66, 133, 244, 0.45),
+      0 0 32px rgba(155, 114, 207, 0.25),
+      inset 0 0 10px rgba(66, 133, 244, 0.1);
+  }
+  50% {
+    box-shadow: 
+      0 0 26px rgba(66, 133, 244, 0.7),
+      0 0 48px rgba(232, 121, 249, 0.4),
+      inset 0 0 16px rgba(155, 114, 207, 0.2);
+  }
+}
+
+.player-box.gemini-active-turn {
+  position: relative;
+  border: 2px solid transparent !important;
+  background-clip: padding-box, border-box !important;
+  background-origin: padding-box, border-box !important;
+  background-image: 
+    linear-gradient(var(--bg-surface), var(--bg-surface)),
+    linear-gradient(
+      125deg,
+      #1a73e8,
+      #4285f4,
+      #9b72cf,
+      #d96570,
+      #ff7597,
+      #29b6f6,
+      #1a73e8
+    ) !important;
+  background-size: 100% 100%, 300% 300% !important;
+  animation: 
+    gemini-gradient-flow 3.5s ease infinite,
+    gemini-glow-pulse 2.8s ease-in-out infinite;
+}
+
+.player-box-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  padding: 0 2px;
+}
+
+.player-box-title {
+  color: var(--text-white);
+  font-size: 1.05rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.turn-indicator-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--emerald-accent);
+  box-shadow: 0 0 8px var(--emerald-accent);
+}
+
+.player-prompt-chip {
+  font-size: 0.76rem;
+  color: var(--blue-sky);
+  background: rgba(56, 189, 248, 0.12);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  margin-left: 8px;
+}
+
+.layout-toggle-btn {
+  background: rgba(37, 99, 235, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: var(--blue-sky);
+  border-radius: var(--radius-sm);
+  padding: 4px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: all var(--transition-fast);
+  cursor: pointer;
+}
+
+.layout-toggle-btn:hover {
+  background: var(--blue-primary);
+  color: var(--text-white);
+  border-color: var(--blue-sky);
+}
+
+.player-cards-container {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.player-cards-container.cards-layout-line,
+.player-cards-row.cards-layout-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 5px;
+}
+
+.player-cards-container.cards-layout-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px 12px;
+  max-width: 270px;
+  margin: 0 auto;
+  justify-items: center;
+}
+
+.player-card-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  flex: 1;
+}
+
+.card-position-num {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.bottom-bar-audio-only {
+  justify-content: space-between;
+  padding: 10px 48px 16px;
+}
+
+/* ========================================================
+   CENTER PLAY FIELD (40 CARDS, DRAW PILE, IN HAND)
+   ======================================================== */
+
+.center-field-arena {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 10px 10px;
+  gap: 12px;
+  position: relative;
+}
+
+.center-slot-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 1;
+}
+
+.center-card-frame-wrapper {
+  width: 68px;
+  height: 98px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.center-slot-label-top {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  height: 18px;
+  line-height: 18px;
+}
+
+.center-slot-label-bottom {
+  color: var(--text-white);
+  font-size: 0.85rem;
+  font-weight: 600;
+  height: 20px;
+  line-height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.invisible-spacer {
+  visibility: hidden;
+  user-select: none;
+}
+
+/* Fanned Cards Display in identical 68x98px medium card ratio */
+.fanned-cards-container {
+  position: relative;
+  width: 68px;
+  height: 98px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fan-card-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: bottom center;
+  transition: transform 0.2s ease;
+}
+
+.fan-card-1 {
+  transform: rotate(-10deg) translate(-8px, 1px);
+  z-index: 1;
+}
+
+.fan-card-2 {
+  transform: rotate(0deg) translate(0, 0);
+  z-index: 2;
+}
+
+.fan-card-3 {
+  transform: rotate(10deg) translate(8px, 1px);
+  z-index: 3;
+}
+
+/* Gameplay Action Buttons (Fixed height, perfectly centered, no jumping) */
+.action-buttons-strip {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  min-height: 48px;
+  max-height: 48px;
+  padding: 4px 6px;
+  scrollbar-width: none;
+}
+
+.action-buttons-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.game-action-btn {
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-card);
+  color: var(--text-white);
+  border-radius: var(--radius-full);
+  height: 38px;
+  padding: 0 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+
+.game-action-btn:hover {
+  background-color: var(--blue-primary);
+  border-color: var(--blue-sky);
+}
+
+.game-action-btn.btn-primary {
+  background-color: var(--blue-primary);
+  border-color: var(--blue-sky);
+}
+
+.game-action-btn.btn-gold {
+  background-color: #d97706;
+  border-color: #fbbf24;
+}
+
+/* ========================================================
+   CARD COMPONENT SPECIFICATIONS
+   ======================================================== */
+
+.card-frame {
+  position: relative;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+/* Sizes */
+.card-frame.size-small {
+  width: 48px;
+  height: 68px;
+}
+
+.card-frame.size-medium {
+  width: 68px;
+  height: 98px;
+}
+
+.card-frame.interactive {
+  cursor: pointer;
+}
+
+.card-frame.interactive:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.4);
+}
+
+.card-frame.selected {
+  box-shadow: 0 0 0 2px var(--blue-sky), 0 0 12px var(--blue-glow);
+  transform: translateY(-4px);
+}
+
+.card-frame.selectable-target {
+  box-shadow: 0 0 0 2px var(--red-accent);
+  animation: targetPulse 1.2s infinite;
+}
+
+@keyframes targetPulse {
+  0%, 100% { box-shadow: 0 0 0 2px var(--red-accent); }
+  50% { box-shadow: 0 0 0 3px var(--red-accent), 0 0 12px rgba(239, 68, 68, 0.6); }
+}
+
+/* Card Themes */
+/* 1. Light Back (Opponent/Bot - White card face with dark comedy mask) */
+.card-face-back.light-back {
+  width: 100%;
+  height: 100%;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+}
+
+/* 2. Dark Back (You - Dark navy card with blue border and white comedy mask) */
+.card-face-back.dark-back {
+  width: 100%;
+  height: 100%;
+  background-color: #0c1626;
+  border: 1.5px solid #2563eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+}
+
+/* 3. Question Card (Draw pile - White with ? in circle) */
+.card-face-question {
+  width: 100%;
+  height: 100%;
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+}
+
+/* 4. Diamond Card (Discard slot - Dark with blue diamond outline) */
+.card-face-diamond {
+  width: 100%;
+  height: 100%;
+  background-color: #0c1626;
+  border: 1.5px solid #1a2f4c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+}
+
+/* 5. Face-Up Front Card */
+.card-face-front {
+  width: 100%;
+  height: 100%;
+  background-color: #ffffff;
+  position: relative;
+  padding: 4px 5px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border-radius: inherit;
+  border: 1px solid #cbd5e1;
+}
+
+.card-face-front.suit-red {
+  color: #dc2626;
+}
+
+.card-face-front.suit-black {
+  color: #0f172a;
+}
+
+.corner-index {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+}
+
+.corner-rank {
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.corner-suit {
+  font-size: 0.72rem;
+}
+
+.corner-bottom-right {
+  align-self: flex-end;
+  transform: rotate(180deg);
+}
+
+.center-card-content {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.center-suit-symbol {
+  font-size: 1.15rem;
+}
+
+.card-points-badge {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  font-size: 0.58rem;
+  background: rgba(15, 23, 42, 0.08);
+  padding: 1px 3px;
+  border-radius: 3px;
+  font-weight: 700;
+}
+
+/* ========================================================
+   MODALS & OVERLAYS (PROFILE, RULES, VICTORY, GAME OVER)
+   ======================================================== */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 8, 16, 0.86);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 120;
+}
+
+.modal-dialog {
+  background-color: var(--bg-surface);
+  border: 1.5px solid var(--border-card);
+  border-radius: var(--radius-xl);
+  padding: 24px 20px;
+  color: var(--text-white);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8);
+  width: 100%;
+  max-width: 400px;
+  max-height: 85vh;
+  overflow-y: auto;
+  position: relative;
+}
+
+.modal-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  padding: 4px;
+}
+
+.primary-blue-btn,
+.primary-gold-btn {
+  background-color: var(--blue-primary);
+  color: var(--text-white);
+  border-radius: var(--radius-md);
+  padding: 12px 20px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 14px rgba(29, 104, 216, 0.4);
+}
+
+.primary-blue-btn:hover,
+.primary-gold-btn:hover {
+  background-color: var(--blue-vibrant);
+}
+
+.secondary-ghost-btn {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  padding: 10px 18px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.secondary-ghost-btn:hover {
+  color: var(--text-white);
+  border-color: var(--border-cyan);
+}
+
+/* Action History Drawer / Log */
+.action-log-drawer {
+  background-color: rgba(12, 22, 38, 0.7);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  max-height: 54px;
+  overflow-y: auto;
+  line-height: 1.4;
+}
+
+/* Toast Notifications */
+.toast-popup {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: var(--bg-surface-elevated);
+  border: 1.5px solid var(--border-cyan);
+  border-radius: var(--radius-lg);
+  padding: 12px 18px;
+  color: var(--text-white);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  z-index: 150;
+  animation: slideUp 0.25s ease-out;
+}
+
+@keyframes slideUp {
+  0% { transform: translate(-50%, 20px); opacity: 0; }
+  100% { transform: translate(-50%, 0); opacity: 1; }
+}

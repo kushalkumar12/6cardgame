@@ -1,0 +1,1301 @@
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { GameEngine } from './engine/gameEngine';
+import { AIBot } from './engine/aiBot';
+import type { GameState } from './types/game';
+import type { UserProfile, RoomPlayerInfo } from './types/user';
+import { api, socket } from './services/api';
+import { logger } from './services/logger';
+
+import { Header } from './components/Header';
+import { BottomBar } from './components/BottomBar';
+import { CardView } from './components/CardView';
+import { PlayerMat } from './components/PlayerMat';
+import { PassDeviceModal } from './components/PassDeviceModal';
+import { InitialMemorizeModal } from './components/InitialMemorizeModal';
+import { RevealModal } from './components/RevealModal';
+import { JackExchangeModal } from './components/JackExchangeModal';
+import { EliminationModal } from './components/EliminationModal';
+import { PenaltyModal } from './components/PenaltyModal';
+import { DeclareVictoryModal } from './components/DeclareVictoryModal';
+import { GameOverModal } from './components/GameOverModal';
+import { RulesModal } from './components/RulesModal';
+
+import { AuthModal } from './components/AuthModal';
+import { ProfileModal } from './components/ProfileModal';
+import { ModeSelect } from './components/ModeSelect';
+import type { GamePlayMode } from './components/ModeSelect';
+import { LobbyRoom } from './components/LobbyRoom';
+import { InvitationToast } from './components/InvitationToast';
+import { FriendRequestToast } from './components/FriendRequestToast';
+
+import { soundManager } from './services/soundManager';
+
+const USER_SESSION_KEY = 'six_cards_user_session_v1';
+const USER_STORAGE_KEY = 'six_cards_user_profile_v1';
+const LOCAL_STORAGE_KEY = 'six_cards_game_state_v1';
+
+export const App: React.FC = () => {
+  // User Profile State
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
+    try {
+      const session = sessionStorage.getItem(USER_SESSION_KEY);
+      if (session) return JSON.parse(session);
+      const saved = localStorage.getItem(USER_STORAGE_KEY);
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  // Online players list across server
+  const [onlinePlayers, setOnlinePlayers] = useState<{ id: string; username: string; avatar: string }[]>([]);
+
+  // Audio Toggles from SoundManager
+  const [isMusicOn, setIsMusicOn] = useState(() => soundManager.getMusicStatus());
+  const [isSoundOn, setIsSoundOn] = useState(() => soundManager.getSoundStatus());
+
+  // Active UI Modals
+  const [showProfile, setShowProfile] = useState(false);
+  const [showRules, setShowRules] = useState(false);
+  const [showRoomDrawer, setShowRoomDrawer] = useState(false);
+  const [showActionLog, setShowActionLog] = useState(false);
+  const [showDeclareVictoryConfirm, setShowDeclareVictoryConfirm] = useState(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [isReplacingMode, setIsReplacingMode] = useState(false);
+  const [isReplacingFromDiscardMode, setIsReplacingFromDiscardMode] = useState(false);
+
+  // Sound Synthesizer Helper
+  const playSfx = (type: 'click' | 'deal' | 'victory' | 'eliminate') => {
+    if (type === 'click') soundManager.playClick();
+    else if (type === 'deal') soundManager.playCardDraw();
+    else if (type === 'victory') soundManager.playVictory();
+    else if (type === 'eliminate') soundManager.playEliminate();
+  };
+
+  // Invitation Toast state
+  const [incomingInvite, setIncomingInvite] = useState<{
+    fromName: string;
+    roomCode: string;
+    fromUserId?: string;
+  } | null>(null);
+
+  // Friend Request Toast state
+  const [incomingFriendRequest, setIncomingFriendRequest] = useState<{
+    fromUserId: string;
+    fromName: string;
+    fromAvatar: string;
+  } | null>(null);
+
+  // Game Mode Selection
+  const [selectedMode, setSelectedMode] = useState<GamePlayMode | null>(null);
+  const [joinRoomCodeInput, setJoinRoomCodeInput] = useState('');
+
+  // Multiplayer Room State
+  const [activeRoom, setActiveRoom] = useState<{
+    roomCode: string;
+    mode: 'multiplayer' | 'lan' | 'online_team';
+    isHost: boolean;
+    players: RoomPlayerInfo[];
+  } | null>(null);
+  const [myGamePlayerId, setMyGamePlayerId] = useState<string | null>(null);
+
+  // Single-player AI Bot reference
+  const aiBotRef = useRef<AIBot | null>(null);
+  const isAiThinkingRef = useRef<boolean>(false);
+
+  // Local Game Engine
+  const engine = useMemo(() => new GameEngine(), []);
+  const [gameState, setGameState] = useState<GameState>(() => engine.getState());
+
+  // Setup options for Pass & Play
+  const [playerCount, setPlayerCount] = useState<number>(4);
+  const [playerNames, setPlayerNames] = useState<string[]>([
+    'Player 1',
+    'Player 2',
+    'Player 3',
+    'Player 4',
+  ]);
+
+  // Sync state helper
+  const syncEngineState = React.useCallback(() => {
+    const fresh = engine.getState();
+    setGameState(fresh);
+    try {
+      if (fresh.currentPhase !== 'SETUP' && !activeRoom) {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(fresh));
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  }, [engine, activeRoom]);
+
+  const currentUserRef = useRef<UserProfile | null>(currentUser);
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+  }, [currentUser]);
+
+  // Check system health, fetch online players, and setup sockets
+  useEffect(() => {
+    api.getHealth().catch(() => {});
+    api.getOnlinePlayers().then(setOnlinePlayers).catch(() => {});
+
+    const registerSocket = () => {
+      if (currentUserRef.current) {
+        socket.emit('register_user', {
+          userId: currentUserRef.current.id,
+          username: currentUserRef.current.username,
+          avatar: currentUserRef.current.avatar,
+        });
+      }
+      socket.emit('get_online_players');
+    };
+
+    socket.on('connect', registerSocket);
+
+    socket.on('online_players_update', (list: any[]) => {
+      if (Array.isArray(list)) {
+        setOnlinePlayers(list);
+      }
+    });
+
+    socket.on('received_invitation', (invite: any) => {
+      setIncomingInvite(invite);
+    });
+
+    socket.on('received_friend_request', (req: any) => {
+      setIncomingFriendRequest(req);
+    });
+
+    socket.on('room_updated', (room: any) => {
+      setActiveRoom((prev) =>
+        prev
+          ? {
+              ...prev,
+              players: room.players,
+              isHost: room.hostId === currentUserRef.current?.id,
+            }
+          : null
+      );
+    });
+
+    socket.on('game_started', ({ state, myGamePlayerId }: any) => {
+      setGameState(state);
+      setMyGamePlayerId(myGamePlayerId);
+    });
+
+    socket.on('room_state_update', ({ state }: any) => {
+      setGameState(state);
+    });
+
+    if (!socket.connected) {
+      socket.connect();
+    } else {
+      registerSocket();
+    }
+
+    return () => {
+      socket.off('connect', registerSocket);
+      socket.off('online_players_update');
+      socket.off('received_invitation');
+      socket.off('received_friend_request');
+      socket.off('room_updated');
+      socket.off('game_started');
+      socket.off('room_state_update');
+    };
+  }, []);
+
+  // Sync user state and register user on socket when logged in
+  useEffect(() => {
+    if (currentUser) {
+      sessionStorage.setItem(USER_SESSION_KEY, JSON.stringify(currentUser));
+      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(currentUser));
+      if (socket.connected) {
+        socket.emit('register_user', {
+          userId: currentUser.id,
+          username: currentUser.username,
+          avatar: currentUser.avatar,
+        });
+        socket.emit('get_online_players');
+      }
+    } else {
+      sessionStorage.removeItem(USER_SESSION_KEY);
+      localStorage.removeItem(USER_STORAGE_KEY);
+    }
+  }, [currentUser]);
+
+  // AI Turn Automation in Mode 1 ("Play with System")
+  useEffect(() => {
+    if (selectedMode !== 'system' || !aiBotRef.current || gameState.gameOver) return;
+
+    const aiBot = aiBotRef.current;
+    const isAiTurnInMemorize =
+      gameState.currentPhase === 'INITIAL_MEMORIZATION' &&
+      gameState.initialMemorizationPlayerIndex === 1;
+
+    // AI Memorization
+    if (isAiTurnInMemorize && !isAiThinkingRef.current) {
+      isAiThinkingRef.current = true;
+      const timer = setTimeout(() => {
+        try {
+          const indices = aiBot.chooseInitialMemorization();
+          const revealed = engine.memorizeCards(indices);
+          aiBot.recordMemorizedCards(indices, [revealed[0], revealed[1]]);
+          engine.completeMemorizationForPlayer();
+          engine.confirmPassDevice();
+          syncEngineState();
+        } catch {
+          // Ignore
+        } finally {
+          isAiThinkingRef.current = false;
+        }
+      }, 700);
+      return () => clearTimeout(timer);
+    }
+
+    // AI Normal Gameplay Turn
+    const isAiActive =
+      gameState.currentPlayerIndex === 1 &&
+      (gameState.currentPhase === 'TURN_START' ||
+        gameState.currentPhase === 'CARD_DRAWN' ||
+        gameState.currentPhase === 'PASS_DEVICE');
+
+    if (isAiActive && !isAiThinkingRef.current) {
+      isAiThinkingRef.current = true;
+      const timer = setTimeout(() => {
+        try {
+          if (gameState.currentPhase === 'PASS_DEVICE') {
+            engine.confirmPassDevice();
+            syncEngineState();
+          } else if (gameState.currentPhase === 'TURN_START') {
+            const decision = aiBot.decideTurnStartAction(engine);
+            if (decision === 'DECLARE_VICTORY') {
+              engine.declareVictory();
+            } else if (decision === 'ELIMINATE') {
+              const matching = aiBot.getKnownMatchingIndices(engine);
+              if (matching.length > 0) {
+                engine.startElimination();
+                const res = engine.attemptElimination(matching);
+                if (res.success) {
+                  aiBot.onCardEliminated(matching);
+                } else {
+                  engine.acknowledgePenalty();
+                }
+                engine.confirmPassDevice();
+              } else {
+                engine.drawCard();
+              }
+            } else if (decision === 'REPLACE_FROM_DISCARD') {
+              const replaceIdx = aiBot.getBestDiscardReplacementIndex(engine);
+              if (replaceIdx !== -1 && gameState.discardPile.length > 0) {
+                const topDiscard = gameState.discardPile[gameState.discardPile.length - 1];
+                engine.replaceCardFromDiscard(replaceIdx);
+                aiBot.onCardReplacedFromDiscard(replaceIdx, topDiscard);
+                engine.confirmPassDevice();
+              } else {
+                engine.drawCard();
+              }
+            } else {
+              engine.drawCard();
+            }
+            syncEngineState();
+          } else if (gameState.currentPhase === 'CARD_DRAWN' && gameState.pendingDrawnCard) {
+            const drawn = gameState.pendingDrawnCard;
+            const decision = aiBot.decideCardDrawnAction(drawn, engine);
+            if (decision.action === 'REPLACE' && decision.replaceIndex !== undefined) {
+              engine.replaceCard(decision.replaceIndex);
+              engine.confirmPassDevice();
+            } else if (decision.action === 'USE_7' && decision.targetCardIndex !== undefined) {
+              engine.startAbility7();
+              engine.executeAbility7(decision.targetCardIndex);
+              engine.finishAbility7();
+              engine.confirmPassDevice();
+            } else if (decision.action === 'USE_8' && decision.targetOpponentId && decision.targetCardIndex !== undefined) {
+              engine.startAbility8();
+              engine.executeAbility8(decision.targetOpponentId, decision.targetCardIndex);
+              engine.finishAbility8();
+              engine.confirmPassDevice();
+            } else if (decision.action === 'USE_JACK' && decision.jackOwnIndex !== undefined && decision.targetOpponentId && decision.targetCardIndex !== undefined) {
+              engine.startAbilityJack();
+              engine.setJackSelection(decision.jackOwnIndex, decision.targetOpponentId, decision.targetCardIndex);
+              engine.executeJackExchange();
+              engine.confirmPassDevice();
+            } else {
+              engine.discardDrawnCard();
+              engine.confirmPassDevice();
+            }
+            syncEngineState();
+          }
+        } catch {
+          // Recovery
+          syncEngineState();
+        } finally {
+          isAiThinkingRef.current = false;
+        }
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedMode, gameState, engine, syncEngineState]);
+
+  // Mode 1: Start Game with System (AI Bot)
+  const startSystemMatch = () => {
+    playSfx('deal');
+    setSelectedMode('system');
+    aiBotRef.current = new AIBot('player-2');
+    const humanName = currentUser?.username || 'You';
+    engine.initializeGame({
+      playerNames: [humanName, 'Bot'],
+    });
+    syncEngineState();
+  };
+
+  // Mode 2: Create Room (LAN or Online Team)
+  const handleCreateRoom = (mode: 'lan' | 'online_team') => {
+    if (!currentUser) return;
+    playSfx('click');
+    socket.emit(
+      'create_room',
+      {
+        userId: currentUser.id,
+        displayName: currentUser.username,
+        avatar: currentUser.avatar,
+        mode,
+        maxPlayers: 4,
+      },
+      (res: any) => {
+        if (res.success) {
+          setActiveRoom({
+            roomCode: res.roomCode,
+            mode,
+            isHost: true,
+            players: res.room.players,
+          });
+          setSelectedMode(mode);
+        }
+      }
+    );
+  };
+
+  // Join Room by Code
+  const handleJoinRoom = (codeToJoin?: string) => {
+    const code = (codeToJoin || joinRoomCodeInput).trim().toUpperCase();
+    if (!code || !currentUser) return;
+    playSfx('click');
+    socket.emit(
+      'join_room',
+      {
+        roomCode: code,
+        userId: currentUser.id,
+        displayName: currentUser.username,
+        avatar: currentUser.avatar,
+      },
+      (res: any) => {
+        if (res.success) {
+          setActiveRoom({
+            roomCode: res.roomCode,
+            mode: res.room.mode,
+            isHost: res.room.hostId === currentUser.id,
+            players: res.room.players,
+          });
+          setSelectedMode(res.room.mode);
+          setJoinRoomCodeInput('');
+          setShowRoomDrawer(false);
+        } else {
+          alert(res.error || 'Could not join room');
+        }
+      }
+    );
+  };
+
+  // Toggle ready in room
+  const handleToggleReady = () => {
+    if (!activeRoom || !currentUser) return;
+    socket.emit('toggle_ready', { roomCode: activeRoom.roomCode, userId: currentUser.id });
+  };
+
+  // Host starts room game
+  const handleStartRoomGame = () => {
+    if (!activeRoom) return;
+    playSfx('deal');
+    socket.emit('start_room_game', { roomCode: activeRoom.roomCode }, (res: any) => {
+      if (!res.success) {
+        alert(res.error || 'Could not start game');
+      }
+    });
+  };
+
+  // Invite player by ID or Username
+  const handleInvitePlayer = async (targetId: string): Promise<{ success: boolean; message?: string }> => {
+    if (!activeRoom || !currentUser) {
+      return { success: false, message: 'Room or user session is not ready.' };
+    }
+    return new Promise((resolve) => {
+      socket.emit(
+        'invite_player',
+        {
+          roomCode: activeRoom.roomCode,
+          targetPlayerId: targetId,
+          fromName: currentUser.username,
+          fromUserId: currentUser.id,
+        },
+        (res: any) => {
+          if (res?.success) {
+            resolve({
+              success: true,
+              message: `Invite sent to ${res.targetName || targetId}!`,
+            });
+          } else {
+            resolve({
+              success: false,
+              message: res?.error || 'Failed to send invite.',
+            });
+          }
+        }
+      );
+    });
+  };
+
+  // Leave active room
+  const handleLeaveRoom = () => {
+    setActiveRoom(null);
+    setSelectedMode(null);
+    setGameState(engine.getState());
+  };
+
+  // Logout action
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setShowProfile(false);
+    setSelectedMode(null);
+    setActiveRoom(null);
+  };
+
+  const activePlayer = gameState.players[gameState.currentPlayerIndex];
+  const topDiscard = gameState.discardPile.length > 0
+    ? gameState.discardPile[gameState.discardPile.length - 1]
+    : null;
+
+  // Local human player identification
+  const localPlayer = activeRoom && myGamePlayerId
+    ? gameState.players.find((p) => p.id === myGamePlayerId) || activePlayer
+    : selectedMode === 'system'
+    ? gameState.players[0]
+    : activePlayer;
+
+  const opponentPlayers = gameState.players.filter((p) => p.id !== localPlayer?.id);
+
+  // In Networked Mode, determine if it is the current client's turn
+  const isMyTurnInNetwork = activeRoom
+    ? activePlayer?.id === myGamePlayerId
+    : (selectedMode === 'system' ? gameState.currentPlayerIndex === 0 : true);
+
+  const shouldShowDrawnCardFaceUp = Boolean(
+    isMyTurnInNetwork && !gameState.pendingDrawnCard?.id.startsWith('hidden')
+  );
+
+  return (
+    <div className="phone-wrapper">
+      {/* AUTHENTICATION OVERLAY */}
+      {!currentUser && <AuthModal onSuccess={(u) => setCurrentUser(u)} />}
+
+      {/* HEADER BAR (Six Cards, 6-Dots button, Smiley Avatar) */}
+      <Header
+        roundNumber={gameState.roundNumber}
+        firstRoundCompleted={gameState.firstRoundCompleted}
+        onOpenRules={() => {
+          soundManager.playClick();
+          setShowRules(true);
+        }}
+        onRestartGame={() => {
+          if (window.confirm('Leave current game?')) {
+            logger.info('GAME', 'Player left current game');
+            setSelectedMode(null);
+            setActiveRoom(null);
+            setGameState({ ...engine.getState(), currentPhase: 'SETUP' });
+          }
+        }}
+        isGameActive={gameState.currentPhase !== 'SETUP'}
+        user={currentUser}
+        onOpenProfile={() => {
+          soundManager.playClick();
+          setShowProfile(true);
+        }}
+      />
+
+      <div className="app-content-area">
+
+        {/* USER PROFILE MODAL */}
+        {showProfile && currentUser && (
+          <ProfileModal
+            user={currentUser}
+            onClose={() => setShowProfile(false)}
+            onLogout={handleLogout}
+            onInviteFriend={(fid) => {
+              if (activeRoom) {
+                handleInvitePlayer(fid);
+              } else {
+                alert('Create or join a room first, then invite your friends!');
+              }
+            }}
+            onUpdateAvatar={(newAvatar) => {
+              const updated = { ...currentUser, avatar: newAvatar };
+              setCurrentUser(updated);
+              sessionStorage.setItem(USER_SESSION_KEY, JSON.stringify(updated));
+              localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updated));
+            }}
+          />
+        )}
+
+        {/* INCOMING INVITATION POPUP TOAST */}
+        {incomingInvite && (
+          <InvitationToast
+            fromName={incomingInvite.fromName}
+            roomCode={incomingInvite.roomCode}
+            onAccept={async (code) => {
+              const hostUserId = incomingInvite.fromUserId;
+              setIncomingInvite(null);
+              if (currentUser && hostUserId && hostUserId !== currentUser.id) {
+                await api.addFriend(currentUser.id, hostUserId).catch(() => {});
+              }
+              handleJoinRoom(code);
+            }}
+            onDecline={() => setIncomingInvite(null)}
+          />
+        )}
+
+        {/* INCOMING FRIEND REQUEST POPUP TOAST */}
+        {incomingFriendRequest && (
+          <FriendRequestToast
+            fromName={incomingFriendRequest.fromName}
+            fromAvatar={incomingFriendRequest.fromAvatar}
+            fromUserId={incomingFriendRequest.fromUserId}
+            onAccept={async (targetUserId, targetName) => {
+              setIncomingFriendRequest(null);
+              if (currentUser) {
+                await api.acceptFriendRequest(currentUser.id, targetUserId).catch(() => {});
+                await api.addFriend(currentUser.id, targetUserId).catch(() => {});
+                alert(`🎉 You and ${targetName} are now friends!`);
+              }
+            }}
+            onDecline={() => setIncomingFriendRequest(null)}
+          />
+        )}
+
+        {/* SCREEN 1: MODE SELECTION & SETUP */}
+        {gameState.currentPhase === 'SETUP' && !activeRoom && (
+          <main className="setup-scroll-content">
+            {/* Mode Selection Cards: Play with Bot / Multiplayer Online */}
+            <ModeSelect
+              onSelectMode={(mode) => {
+                if (mode === 'system') {
+                  startSystemMatch();
+                } else if (mode === 'multiplayer' || mode === 'online_team' || mode === 'lan') {
+                  handleCreateRoom('online_team');
+                } else {
+                  setSelectedMode('pass_and_play');
+                }
+              }}
+            />
+
+            {/* Classic Pass-and-Play Option */}
+            {selectedMode === 'pass_and_play' && (
+              <div style={{ marginTop: 12, padding: 14, background: 'var(--bg-surface)', borderRadius: 16 }}>
+                <h3 style={{ fontSize: '1rem', color: 'var(--blue-sky)', marginBottom: 8 }}>
+                  Pass-and-Play Setup
+                </h3>
+                <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+                  {[2, 3, 4, 5, 6].map((num) => (
+                    <button
+                      key={num}
+                      type="button"
+                      className="game-action-btn"
+                      style={{
+                        backgroundColor: playerCount === num ? 'var(--blue-primary)' : undefined,
+                      }}
+                      onClick={() => {
+                        setPlayerCount(num);
+                        const updated = [...playerNames];
+                        while (updated.length < num) updated.push(`Player ${updated.length + 1}`);
+                        setPlayerNames(updated.slice(0, num));
+                      }}
+                    >
+                      {num}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className="primary-blue-btn"
+                  onClick={() => {
+                    engine.initializeGame({ playerNames });
+                    syncEngineState();
+                  }}
+                >
+                  Deal Cards
+                </button>
+              </div>
+            )}
+          </main>
+        )}
+
+        {/* MULTIPLAYER LOBBY ROOM SCREEN */}
+        {gameState.currentPhase === 'SETUP' && activeRoom && (
+          <main className="setup-scroll-content">
+            <LobbyRoom
+              roomCode={activeRoom.roomCode}
+              mode={activeRoom.mode}
+              isHost={activeRoom.isHost}
+              myUserId={currentUser?.id || ''}
+              players={activeRoom.players}
+              onlinePlayers={onlinePlayers}
+              networkInfo={null}
+              onToggleReady={handleToggleReady}
+              onStartGame={handleStartRoomGame}
+              onLeaveRoom={handleLeaveRoom}
+              onInvitePlayerId={handleInvitePlayer}
+              onAddFriend={async (targetId) => {
+                if (!currentUser) return false;
+                await api.sendFriendRequest(currentUser.id, targetId);
+                await api.addFriend(currentUser.id, targetId);
+                alert('Friend added! Check your Profile -> Friends tab.');
+                return true;
+              }}
+            />
+          </main>
+        )}
+
+        {/* SCREEN 3: GAMEPLAY ARENA */}
+        {gameState.currentPhase !== 'SETUP' && (
+          <main className="gameplay-screen">
+            {/* TOP PLAYER: OPPONENT ("Bot" in single player or opponents in multiplayer) */}
+            <section aria-label="Opponent Player Area">
+              {opponentPlayers.map((opp) => (
+                <PlayerMat
+                  key={opp.id}
+                  player={opp}
+                  isActiveTurn={gameState.currentPlayerIndex === gameState.players.indexOf(opp)}
+                  isSelf={false}
+                />
+              ))}
+            </section>
+
+            {/* CENTER ARENA: 40 CARDS, DRAW PILE, IN HAND */}
+            <section className="center-field-arena" aria-label="Center Field Arena">
+              {/* LEFT SLOT: 40 DISCARD PILE */}
+              <div
+                className="center-slot-column"
+                onClick={() => {
+                  if (gameState.currentPhase === 'TURN_START' && isMyTurnInNetwork && topDiscard) {
+                    soundManager.playClick();
+                    setIsReplacingFromDiscardMode(!isReplacingFromDiscardMode);
+                  }
+                }}
+              >
+                <div className="center-card-frame-wrapper">
+                  {topDiscard ? (
+                    <CardView
+                      card={topDiscard}
+                      isFaceUp
+                      size="medium"
+                      label={`Discard pile top: ${topDiscard.rank}`}
+                    />
+                  ) : (
+                    <CardView
+                      card={null}
+                      isFaceUp={false}
+                      size="medium"
+                      cardTheme="diamond"
+                      label="Discard pile slot"
+                    />
+                  )}
+                </div>
+                <span className="center-slot-label-bottom">{gameState.drawPile.length}</span>
+              </div>
+
+              {/* MIDDLE SLOT: DRAW PILE WITH 'IN HAND' LABEL */}
+              <div
+                className="center-slot-column"
+                onClick={() => {
+                  if (gameState.currentPhase === 'TURN_START' && isMyTurnInNetwork) {
+                    playSfx('deal');
+                    if (activeRoom) {
+                      socket.emit('room_action', { roomCode: activeRoom.roomCode, actionType: 'DRAW' });
+                    } else {
+                      try {
+                        engine.drawCard();
+                        setIsReplacingMode(false);
+                        syncEngineState();
+                      } catch {
+                        syncEngineState();
+                      }
+                    }
+                  }
+                }}
+                style={{ cursor: gameState.currentPhase === 'TURN_START' && isMyTurnInNetwork ? 'pointer' : 'default' }}
+              >
+                <div className="center-card-frame-wrapper">
+                  <CardView
+                    card={null}
+                    isFaceUp={false}
+                    size="medium"
+                    cardTheme="question"
+                    interactive={gameState.currentPhase === 'TURN_START' && isMyTurnInNetwork}
+                    label={`Draw pile with ${gameState.drawPile.length} cards`}
+                  />
+                </div>
+                <span className="center-slot-label-bottom">In Hand</span>
+              </div>
+
+              {/* RIGHT SLOT: DEALT / FANNED CARDS IN IDENTICAL RATIO */}
+              <div className="center-slot-column">
+                <div className="center-card-frame-wrapper fanned-cards-container">
+                  {gameState.pendingDrawnCard ? (
+                    <CardView
+                      card={shouldShowDrawnCardFaceUp ? gameState.pendingDrawnCard : null}
+                      isFaceUp={shouldShowDrawnCardFaceUp}
+                      size="medium"
+                      cardTheme="light"
+                      label="Your currently drawn card"
+                    />
+                  ) : (
+                    /* Stylized fanned cards preview with matching medium card ratio */
+                    <>
+                      <div className="fan-card-layer fan-card-1">
+                        <CardView
+                          card={{ id: 'fan-1', suit: 'SPADES', rank: '7', pointValue: 7 }}
+                          isFaceUp
+                          size="medium"
+                        />
+                      </div>
+                      <div className="fan-card-layer fan-card-2">
+                        <CardView
+                          card={{ id: 'fan-2', suit: 'HEARTS', rank: '6', pointValue: 6 }}
+                          isFaceUp
+                          size="medium"
+                        />
+                      </div>
+                      <div className="fan-card-layer fan-card-3">
+                        <CardView
+                          card={{ id: 'fan-3', suit: 'DIAMONDS', rank: '9', pointValue: 9 }}
+                          isFaceUp
+                          size="medium"
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+                <span className="center-slot-label-bottom invisible-spacer">&nbsp;</span>
+              </div>
+            </section>
+
+            {/* ACTION BUTTONS STRIP */}
+            <section className="action-buttons-strip" aria-label="Game Actions">
+              {gameState.currentPhase === 'TURN_START' && isMyTurnInNetwork && (
+                <>
+                  <button
+                    type="button"
+                    className="game-action-btn btn-primary"
+                    onClick={() => {
+                      playSfx('deal');
+                      setIsReplacingFromDiscardMode(false);
+                      if (activeRoom) {
+                        socket.emit('room_action', { roomCode: activeRoom.roomCode, actionType: 'DRAW' });
+                      } else {
+                        try {
+                          engine.drawCard();
+                          setIsReplacingMode(false);
+                          syncEngineState();
+                        } catch {
+                          syncEngineState();
+                        }
+                      }
+                    }}
+                    id="draw-card-btn"
+                  >
+                    🎴 Draw Card
+                  </button>
+
+                  {topDiscard && (
+                    <button
+                      type="button"
+                      className={`game-action-btn ${isReplacingFromDiscardMode ? 'btn-primary' : ''}`}
+                      onClick={() => setIsReplacingFromDiscardMode(!isReplacingFromDiscardMode)}
+                      id="replace-card-btn"
+                    >
+                      🔄 {isReplacingFromDiscardMode ? 'Cancel' : `Replace (${topDiscard.pointValue}p)`}
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    className="game-action-btn"
+                    disabled={!topDiscard}
+                    onClick={() => {
+                      setIsReplacingFromDiscardMode(false);
+                      engine.startElimination();
+                      syncEngineState();
+                    }}
+                    id="start-elimination-btn"
+                  >
+                    ⚡ Eliminate
+                  </button>
+
+                  <button
+                    type="button"
+                    className="game-action-btn btn-gold"
+                    disabled={!gameState.firstRoundCompleted}
+                    onClick={() => {
+                      setIsReplacingFromDiscardMode(false);
+                      setShowDeclareVictoryConfirm(true);
+                    }}
+                    id="declare-victory-btn"
+                  >
+                    🏆 Victory
+                  </button>
+                </>
+              )}
+
+              {gameState.currentPhase === 'CARD_DRAWN' && gameState.pendingDrawnCard && isMyTurnInNetwork && (
+                <>
+                  <button
+                    type="button"
+                    className={`game-action-btn ${isReplacingMode ? 'btn-primary' : ''}`}
+                    onClick={() => setIsReplacingMode(!isReplacingMode)}
+                    id="toggle-replace-btn"
+                  >
+                    🔄 {isReplacingMode ? 'Cancel' : 'Replace in Hand'}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="game-action-btn"
+                    onClick={() => {
+                      playSfx('click');
+                      if (activeRoom) {
+                        socket.emit('room_action', { roomCode: activeRoom.roomCode, actionType: 'DISCARD' });
+                      } else {
+                        engine.discardDrawnCard();
+                        setIsReplacingMode(false);
+                        syncEngineState();
+                      }
+                    }}
+                    id="discard-drawn-btn"
+                  >
+                    🗑️ Discard
+                  </button>
+
+                  {gameState.pendingDrawnCard.rank === '7' && (
+                    <button
+                      type="button"
+                      className="game-action-btn btn-primary"
+                      onClick={() => {
+                        engine.startAbility7();
+                        syncEngineState();
+                      }}
+                      id="use-ability-7-btn"
+                    >
+                      👁️ Peek Own (7)
+                    </button>
+                  )}
+
+                  {gameState.pendingDrawnCard.rank === '8' && (
+                    <button
+                      type="button"
+                      className="game-action-btn btn-primary"
+                      onClick={() => {
+                        engine.startAbility8();
+                        syncEngineState();
+                      }}
+                      id="use-ability-8-btn"
+                    >
+                      👁️ Peek Opponent (8)
+                    </button>
+                  )}
+
+                  {gameState.pendingDrawnCard.rank === 'J' && (
+                    <button
+                      type="button"
+                      className="game-action-btn btn-primary"
+                      onClick={() => {
+                        engine.startAbilityJack();
+                        syncEngineState();
+                      }}
+                      id="use-ability-jack-btn"
+                    >
+                      🔀 Blind Exchange (J)
+                    </button>
+                  )}
+                </>
+              )}
+            </section>
+
+            {/* BOTTOM PLAYER: "YOU" */}
+            {localPlayer && (
+              <PlayerMat
+                player={localPlayer}
+                isActiveTurn={gameState.currentPlayerIndex === gameState.players.indexOf(localPlayer)}
+                isSelf={true}
+                interactive={(isReplacingMode || isReplacingFromDiscardMode) && isMyTurnInNetwork}
+                prompt={
+                  isReplacingFromDiscardMode
+                    ? `Tap position to replace with ${topDiscard?.rank}.`
+                    : isReplacingMode
+                    ? 'Tap position to replace.'
+                    : undefined
+                }
+                onMenuClick={() => setShowActionLog(!showActionLog)}
+                onCardClick={(index) => {
+                  playSfx('click');
+                  if (isReplacingFromDiscardMode) {
+                    if (activeRoom) {
+                      socket.emit('room_action', {
+                        roomCode: activeRoom.roomCode,
+                        actionType: 'REPLACE_FROM_DISCARD',
+                        payload: { positionIndex: index },
+                      });
+                    } else {
+                      engine.replaceCardFromDiscard(index);
+                      syncEngineState();
+                    }
+                    setIsReplacingFromDiscardMode(false);
+                  } else if (isReplacingMode) {
+                    if (activeRoom) {
+                      socket.emit('room_action', {
+                        roomCode: activeRoom.roomCode,
+                        actionType: 'REPLACE',
+                        payload: { index },
+                      });
+                    } else {
+                      engine.replaceCard(index);
+                      syncEngineState();
+                    }
+                    setIsReplacingMode(false);
+                  }
+                }}
+              />
+            )}
+
+            {/* DRAWER ACTION LOG */}
+            {showActionLog && gameState.actionHistory.length > 0 && (
+              <div className="action-log-drawer">
+                {gameState.actionHistory.slice(-3).map((entry, idx) => (
+                  <div key={entry.id || idx}>{entry.text}</div>
+                ))}
+              </div>
+            )}
+          </main>
+        )}
+      </div>
+
+      {/* BOTTOM NAVIGATION BAR */}
+      <BottomBar
+        isMusicOn={isMusicOn}
+        onToggleMusic={() => {
+          const next = soundManager.toggleMusic();
+          setIsMusicOn(next);
+        }}
+        isSoundOn={isSoundOn}
+        onToggleSound={() => {
+          const next = soundManager.toggleSound();
+          setIsSoundOn(next);
+        }}
+        showRoomButton={gameState.currentPhase === 'SETUP'}
+        onRoomClick={() => {
+          soundManager.playClick();
+          if (activeRoom) {
+            alert(`Current Room: ${activeRoom.roomCode} (${activeRoom.players.length} players)`);
+          } else {
+            setShowRoomDrawer(true);
+          }
+        }}
+        onExitClick={() => {
+          soundManager.playClick();
+          setShowExitConfirm(true);
+        }}
+      />
+
+        {/* ROOM POPUP DRAWER */}
+        {showRoomDrawer && (
+          <div className="modal-backdrop" onClick={() => setShowRoomDrawer(false)}>
+            <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-title-row">
+                <h3 style={{ fontSize: '1.15rem' }}>Multiplayer Room</h3>
+                <button
+                  type="button"
+                  className="modal-close-btn"
+                  onClick={() => setShowRoomDrawer(false)}
+                >
+                  ✕
+                </button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <input
+                  type="text"
+                  className="phone-text-input"
+                  placeholder="ENTER ROOM CODE (e.g. 7K2X)"
+                  value={joinRoomCodeInput}
+                  onChange={(e) => setJoinRoomCodeInput(e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="primary-blue-btn"
+                  onClick={() => handleJoinRoom()}
+                >
+                  Join Room
+                </button>
+                <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                  — or create your own —
+                </div>
+                <button
+                  type="button"
+                  className="secondary-ghost-btn"
+                  onClick={() => {
+                    setShowRoomDrawer(false);
+                    handleCreateRoom('online_team');
+                  }}
+                >
+                  Create New Room
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SCREEN 2: INITIAL MEMORIZATION MODAL */}
+        {gameState.currentPhase === 'INITIAL_MEMORIZATION' &&
+          gameState.initialMemorizationPlayerIndex >= 0 &&
+          (!activeRoom || (activeRoom && myGamePlayerId === `player-${gameState.initialMemorizationPlayerIndex + 1}`)) &&
+          (selectedMode !== 'system' || gameState.initialMemorizationPlayerIndex === 0) && (
+            <InitialMemorizeModal
+              playerName={
+                gameState.players[gameState.initialMemorizationPlayerIndex]?.displayName || 'You'
+              }
+              cards={
+                gameState.players[gameState.initialMemorizationPlayerIndex]?.cards || []
+              }
+              onFinishMemorization={(selectedIndices) => {
+                playSfx('click');
+                if (activeRoom) {
+                  socket.emit('room_action', {
+                    roomCode: activeRoom.roomCode,
+                    actionType: 'MEMORIZE',
+                    payload: { indices: selectedIndices },
+                  });
+                } else {
+                  engine.memorizeCards(selectedIndices);
+                  engine.completeMemorizationForPlayer();
+                  if (selectedMode === 'system') {
+                    engine.confirmPassDevice();
+                  }
+                  syncEngineState();
+                }
+              }}
+            />
+          )}
+
+        {/* PASS DEVICE PRIVACY MODAL (Pass-and-play only) */}
+        {gameState.currentPhase === 'PASS_DEVICE' && !activeRoom && selectedMode !== 'system' && (
+          <PassDeviceModal
+            playerName={
+              gameState.initialMemorizationPlayerIndex >= 0
+                ? gameState.players[gameState.initialMemorizationPlayerIndex]?.displayName
+                : gameState.players[gameState.currentPlayerIndex]?.displayName
+            }
+            onConfirm={() => {
+              engine.confirmPassDevice();
+              syncEngineState();
+            }}
+          />
+        )}
+
+        {/* REVEAL MODAL (FOR 7 & 8 SPECIAL ABILITIES) */}
+        {(gameState.currentPhase === 'SPECIAL_ABILITY_7' ||
+          gameState.currentPhase === 'SPECIAL_ABILITY_8') &&
+          isMyTurnInNetwork && (
+            <RevealModal
+              abilityType={gameState.currentPhase === 'SPECIAL_ABILITY_7' ? '7' : '8'}
+              activePlayer={activePlayer}
+              allPlayers={gameState.players}
+              peekedCard={gameState.peekedCard}
+              onSelectOwnCard={(idx) => {
+                engine.executeAbility7(idx);
+                syncEngineState();
+              }}
+              onSelectOpponentCard={(oppId, idx) => {
+                engine.executeAbility8(oppId, idx);
+                syncEngineState();
+              }}
+              onFinish={() => {
+                if (gameState.currentPhase === 'SPECIAL_ABILITY_7') {
+                  engine.finishAbility7();
+                } else {
+                  engine.finishAbility8();
+                }
+                if (selectedMode === 'system') {
+                  engine.confirmPassDevice();
+                }
+                syncEngineState();
+              }}
+            />
+          )}
+
+        {/* JACK BLIND EXCHANGE MODAL */}
+        {gameState.currentPhase === 'SPECIAL_ABILITY_JACK' && isMyTurnInNetwork && (
+          <JackExchangeModal
+            activePlayer={activePlayer}
+            allPlayers={gameState.players}
+            onConfirmExchange={(ownIdx, oppId, oppIdx) => {
+              if (activeRoom) {
+                socket.emit('room_action', {
+                  roomCode: activeRoom.roomCode,
+                  actionType: 'ABILITY_JACK',
+                  payload: { ownIndex: ownIdx, targetOpponentId: oppId, targetIndex: oppIdx },
+                });
+              } else {
+                engine.setJackSelection(ownIdx, oppId, oppIdx);
+                engine.executeJackExchange();
+                if (selectedMode === 'system') {
+                  engine.confirmPassDevice();
+                }
+                syncEngineState();
+              }
+            }}
+            onCancel={() => {
+              const state = engine.getState();
+              state.currentPhase = 'CARD_DRAWN';
+              state.jackSelection = null;
+              engine.loadState(state);
+              syncEngineState();
+            }}
+          />
+        )}
+
+        {/* MATCHING ELIMINATION MODAL */}
+        {gameState.currentPhase === 'SELECT_ELIMINATION' && topDiscard && isMyTurnInNetwork && (
+          <EliminationModal
+            topDiscard={topDiscard}
+            activePlayer={activePlayer}
+            onAttempt={(selectedIndices) => {
+              if (activeRoom) {
+                socket.emit('room_action', {
+                  roomCode: activeRoom.roomCode,
+                  actionType: 'ELIMINATE',
+                  payload: { indices: selectedIndices },
+                });
+              } else {
+                engine.attemptElimination(selectedIndices);
+                syncEngineState();
+              }
+            }}
+            onCancel={() => {
+              engine.cancelElimination();
+              syncEngineState();
+            }}
+          />
+        )}
+
+        {/* PENALTY NOTICE MODAL */}
+        {gameState.currentPhase === 'PENALTY_NOTICE' && gameState.pendingPenalty && isMyTurnInNetwork && (
+          <PenaltyModal
+            pendingPenalty={gameState.pendingPenalty}
+            onAcknowledge={() => {
+              engine.acknowledgePenalty();
+              if (selectedMode === 'system') {
+                engine.confirmPassDevice();
+              }
+              syncEngineState();
+            }}
+          />
+        )}
+
+        {/* DECLARE VICTORY CONFIRMATION MODAL */}
+        {showDeclareVictoryConfirm && (
+          <DeclareVictoryModal
+            playerName={activePlayer?.displayName || 'Active Player'}
+            onConfirm={() => {
+              setShowDeclareVictoryConfirm(false);
+              if (activeRoom) {
+                socket.emit('room_action', {
+                  roomCode: activeRoom.roomCode,
+                  actionType: 'DECLARE_VICTORY',
+                });
+              } else {
+                engine.declareVictory();
+                syncEngineState();
+              }
+            }}
+            onCancel={() => setShowDeclareVictoryConfirm(false)}
+          />
+        )}
+
+        {/* GAME OVER RESULTS MODAL */}
+        {gameState.currentPhase === 'GAME_OVER' && (
+          <GameOverModal
+            players={gameState.players}
+            winnerIds={gameState.winnerIds}
+            endReason={gameState.endReason}
+            declaringPlayerId={gameState.declaringPlayerId}
+            onPlayAgain={() => {
+              setSelectedMode(null);
+              setActiveRoom(null);
+              setGameState({
+                ...engine.getState(),
+                currentPhase: 'SETUP',
+              });
+            }}
+          />
+        )}
+
+        {/* RULES MODAL */}
+        {showRules && <RulesModal onClose={() => setShowRules(false)} />}
+
+        {/* EXIT CONFIRMATION MODAL */}
+        {showExitConfirm && (
+          <div className="modal-backdrop" onClick={() => setShowExitConfirm(false)}>
+            <div
+              className="modal-dialog"
+              onClick={(e) => e.stopPropagation()}
+              style={{ maxWidth: 330, textAlign: 'center' }}
+            >
+              <h3 style={{ fontSize: '1.2rem', marginBottom: 10 }}>Exit to Menu?</h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginBottom: 20 }}>
+                Are you sure you want to exit the current match and return to the main menu?
+              </p>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+                <button
+                  type="button"
+                  className="secondary-ghost-btn"
+                  style={{ flex: 1 }}
+                  onClick={() => {
+                    soundManager.playClick();
+                    setShowExitConfirm(false);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="primary-blue-btn"
+                  id="confirm-exit-btn"
+                  style={{ flex: 1, backgroundColor: 'var(--red-accent)', borderColor: 'transparent' }}
+                  onClick={() => {
+                    soundManager.playClick();
+                    setShowExitConfirm(false);
+                    setSelectedMode(null);
+                    setActiveRoom(null);
+                    setGameState({
+                      ...engine.getState(),
+                      currentPhase: 'SETUP',
+                    });
+                  }}
+                >
+                  Exit
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+    </div>
+  );
+};
+
+export default App;

@@ -230,8 +230,11 @@ export class MockDatabase implements IDatabase {
     // 9. FRIENDS
     if (norm.includes('FROM USERS U') && norm.includes('INNER JOIN FRIENDS F')) {
       const uid = params[0];
-      const friendIds = this.friends.filter((f) => f.user_id === uid).map((f) => f.friend_id);
-      const friendUsers = friendIds.map((fid) => this.users.get(fid)).filter(Boolean);
+      const friendIds = this.friends
+        .filter((f) => f.user_id === uid || f.friend_id === uid)
+        .map((f) => (f.user_id === uid ? f.friend_id : f.user_id));
+      const uniqueFriendIds = Array.from(new Set(friendIds)).filter((id) => id !== uid);
+      const friendUsers = uniqueFriendIds.map((fid) => this.users.get(fid)).filter(Boolean);
       return { rows: friendUsers as T[], rowCount: friendUsers.length };
     }
     if (norm.startsWith('INSERT INTO FRIENDS')) {

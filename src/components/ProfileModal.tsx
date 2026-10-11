@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { api } from '../services/api';
+import { api, socket } from '../services/api';
 import type { UserProfile, FriendUser, ScoreboardEntry } from '../types/user';
 
 interface ProfileModalProps {
@@ -39,6 +39,16 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     }
   }, [activeTab, user.id]);
 
+  useEffect(() => {
+    const handleFriendListUpdate = () => {
+      api.getFriends(user.id).then(setFriends).catch(() => {});
+    };
+    socket.on('friend_list_updated', handleFriendListUpdate);
+    return () => {
+      socket.off('friend_list_updated', handleFriendListUpdate);
+    };
+  }, [user.id]);
+
   const handleSearchUsers = async () => {
     if (!searchQuery.trim()) return;
     try {
@@ -51,13 +61,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
   const handleAddFriend = async (targetId: string) => {
     try {
-      const res = await api.addFriend(user.id, targetId);
-      if (res.success) {
-        setFriendMsg(`Added ${res.friend.username} as friend!`);
-        api.getFriends(user.id).then(setFriends);
-      } else {
-        setFriendMsg(res.error || 'Failed to add friend');
-      }
+      setFriendMsg('Adding friend...');
+      const res = await api.sendFriendRequest(user.id, targetId);
+      await api.addFriend(user.id, targetId);
+      const updated = await api.getFriends(user.id);
+      setFriends(updated);
+      setFriendMsg(res.success ? `Added ${res.targetUser?.username || targetId} as friend!` : 'Friend added!');
     } catch {
       setFriendMsg('Failed to add friend');
     }
@@ -239,9 +248,24 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         {/* TAB 3: FRIENDS */}
         {activeTab === 'friends' && (
           <div>
-            <h3 style={{ fontSize: '1.1rem', color: 'var(--gold-light)', marginBottom: 12 }}>
-              👥 Friends & Player Search
-            </h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <h3 style={{ fontSize: '1.1rem', color: 'var(--gold-light)', margin: 0 }}>
+                👥 Friends & Player Search
+              </h3>
+              <button
+                className="secondary-ghost-btn"
+                style={{ padding: '4px 10px', fontSize: '0.78rem' }}
+                onClick={() => {
+                  setFriendMsg('Refreshing friends list...');
+                  api.getFriends(user.id).then((fl) => {
+                    setFriends(fl);
+                    setFriendMsg('');
+                  }).catch(() => setFriendMsg('Failed to refresh'));
+                }}
+              >
+                🔄 Refresh
+              </button>
+            </div>
 
             {/* Search and Add Friend by Player ID */}
             <div style={{ background: 'rgba(0,0,0,0.3)', padding: 14, borderRadius: 10, marginBottom: 18 }}>
@@ -256,6 +280,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   placeholder="Enter Player ID like P-1001 or Name"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSearchUsers();
+                  }}
                 />
                 <button className="primary-gold-btn" style={{ width: 'auto', padding: '10px 20px' }} onClick={handleSearchUsers}>
                   Search
@@ -272,14 +299,21 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               {searchResults.length > 0 && (
                 <div style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 10 }}>
                   <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Search Results:</span>
-                  {searchResults.map((sr) => (
-                    <div key={sr.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0' }}>
-                      <span>{sr.avatar} {sr.username} (<code>{sr.id}</code>)</span>
-                      <button className="secondary-ghost-btn" style={{ padding: '4px 10px', fontSize: '0.8rem' }} onClick={() => handleAddFriend(sr.id)}>
-                        + Add Friend
-                      </button>
-                    </div>
-                  ))}
+                  {searchResults.map((sr) => {
+                    const isAlreadyFriend = friends.some((f) => f.id === sr.id);
+                    return (
+                      <div key={sr.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0' }}>
+                        <span>{sr.avatar} {sr.username} (<code>{sr.id}</code>)</span>
+                        {isAlreadyFriend ? (
+                          <span style={{ fontSize: '0.78rem', color: '#a7f3d0', fontWeight: 600 }}>✓ Friend</span>
+                        ) : (
+                          <button className="secondary-ghost-btn" style={{ padding: '4px 10px', fontSize: '0.8rem' }} onClick={() => handleAddFriend(sr.id)}>
+                            + Add Friend
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

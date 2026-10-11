@@ -170,20 +170,30 @@ export const UserRepository = {
   async addFriend(userId: string, friendId: string): Promise<void> {
     if (userId === friendId) return;
     const db = await getDatabase();
-    await db.query(
-      `INSERT INTO friends (user_id, friend_id, created_at)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (user_id, friend_id) DO NOTHING`,
-      [userId, friendId, Date.now()]
-    );
+    const now = Date.now();
+    await Promise.all([
+      db.query(
+        `INSERT INTO friends (user_id, friend_id, created_at)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (user_id, friend_id) DO NOTHING`,
+        [userId, friendId, now]
+      ),
+      db.query(
+        `INSERT INTO friends (user_id, friend_id, created_at)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (user_id, friend_id) DO NOTHING`,
+        [friendId, userId, now]
+      ),
+    ]);
   },
 
   async getFriends(userId: string): Promise<DBUser[]> {
     const db = await getDatabase();
     const res = await db.query<DBUser>(
-      `SELECT u.* FROM users u
-       INNER JOIN friends f ON f.friend_id = u.id
-       WHERE f.user_id = $1`,
+      `SELECT DISTINCT u.* FROM users u
+       INNER JOIN friends f ON (f.friend_id = u.id AND f.user_id = $1) OR (f.user_id = u.id AND f.friend_id = $1)
+       WHERE u.id != $1
+       ORDER BY u.username ASC`,
       [userId]
     );
     return res.rows;

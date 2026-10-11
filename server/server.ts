@@ -239,10 +239,14 @@ app.post('/api/friends/add', async (req, res) => {
       return res.status(404).json({ error: 'Player ID not found' });
     }
 
-    await Promise.all([
-      UserRepository.addFriend(userId, targetId),
-      UserRepository.addFriend(targetId, userId),
-    ]);
+    await UserRepository.addFriend(userId, targetId);
+
+    // Notify connected sockets of both users in real time
+    const userSids = userSockets.get(userId) ? Array.from(userSockets.get(userId)!) : [];
+    const targetSids = userSockets.get(targetId) ? Array.from(userSockets.get(targetId)!) : [];
+    [...userSids, ...targetSids].forEach((sid) => {
+      io.to(sid).emit('friend_list_updated', { userId, targetId });
+    });
 
     res.json({
       success: true,
@@ -429,29 +433,30 @@ io.on('connection', (socket: Socket) => {
       }
       userSockets.get(userId)!.add(socket.id);
 
-      // 2. Persistent L2 SQL table update
-      await ConnectionRepository.register(socket.id, userId);
-
-      if (username) {
-        const existing = await UserRepository.findById(userId);
-        if (existing) {
+      // 2. Ensure user exists in SQL users table before adding connections FK
+      const existing = await UserRepository.findById(userId);
+      if (existing) {
+        if (username || avatar) {
           await UserRepository.create({
             ...existing,
-            username,
+            username: username || existing.username,
             avatar: avatar || existing.avatar,
           });
-        } else {
-          await UserRepository.create({
-            id: userId,
-            username,
-            avatar: avatar || '🃏',
-            auth_provider: 'guest',
-            referral_code: `REF-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
-            referral_count: 0,
-            chips: 1000,
-          });
         }
+      } else {
+        await UserRepository.create({
+          id: userId,
+          username: username || `Guest-${userId.slice(-4)}`,
+          avatar: avatar || '🃏',
+          auth_provider: 'guest',
+          referral_code: `REF-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+          referral_count: 0,
+          chips: 1000,
+        });
       }
+
+      // 3. Persistent L2 SQL table update (now guaranteed FK integrity)
+      await ConnectionRepository.register(socket.id, userId);
 
       io.emit('user_presence_change', { userId, online: true });
       broadcastOnlineList();
@@ -601,6 +606,72 @@ io.on('connection', (socket: Socket) => {
       targetName: targetUser.username,
       targetId: targetUser.id,
     });
+  });
+
+  // Real-Time Friend Request
+  socket.on('send_friend_request', async ({ fromUserId, targetPlayerId }: any, callback?: Function) => {
+    try {
+      if (!targetPlayerId || !targetPlayerId.trim()) {
+        if (typeof callback === 'function') callback({ success: false, error: 'Please enter a valid Player ID or username' });
+        return;
+      }
+
+      const matches = await UserRepository.search(targetPlayerId);
+      const targetUser = matches[0];
+      if (!targetUser) {
+        if (typeof callback === 'function') callback({ success: false, error: `Player "${targetPlayerId}" not found.` });
+        return;
+      }
+
+      if (targetUser.id === fromUserId) {
+        if (typeof callback === 'function') callback({ success: false, error: 'Cannot add yourself as friend.' });
+        return;
+      }
+
+      const fromUser = await UserRepository.findById(fromUserId);
+      if (!fromUser) {
+        if (typeof callback === 'function') callback({ success: false, error: 'Your user profile was not found.' });
+        return;
+      }
+
+      const memorySockets = userSockets.get(targetUser.id);
+      const sids = memorySockets ? Array.from(memorySockets) : [];
+      for (const sid of sids) {
+        io.to(sid).emit('received_friend_request', {
+          fromUserId: fromUser.id,
+          fromName: fromUser.username,
+          fromAvatar: fromUser.avatar,
+          timestamp: Date.now(),
+        });
+      }
+
+      if (typeof callback === 'function') {
+        callback({
+          success: true,
+          targetUser: { id: targetUser.id, username: targetUser.username, avatar: targetUser.avatar },
+          online: sids.length > 0,
+        });
+      }
+    } catch (err: any) {
+      if (typeof callback === 'function') callback({ success: false, error: err.message });
+    }
+  });
+
+  // Accept Friend Request
+  socket.on('accept_friend_request', async ({ userId, friendId }: any, callback?: Function) => {
+    try {
+      await UserRepository.addFriend(userId, friendId);
+
+      const userSids = userSockets.get(userId) ? Array.from(userSockets.get(userId)!) : [];
+      const friendSids = userSockets.get(friendId) ? Array.from(userSockets.get(friendId)!) : [];
+      [...userSids, ...friendSids].forEach((sid) => {
+        io.to(sid).emit('friend_list_updated', { userId, friendId });
+      });
+
+      if (typeof callback === 'function') callback({ success: true });
+    } catch (err: any) {
+      if (typeof callback === 'function') callback({ success: false, error: err.message });
+    }
   });
 
   // Start game from lobby

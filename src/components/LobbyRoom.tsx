@@ -13,6 +13,7 @@ interface LobbyRoomProps {
   onStartGame: () => void;
   onLeaveRoom: () => void;
   onInvitePlayerId: (targetPlayerId: string) => Promise<{ success: boolean; message?: string }>;
+  onAddFriend?: (targetUserId: string) => Promise<boolean>;
 }
 
 export const LobbyRoom: React.FC<LobbyRoomProps> = ({
@@ -25,6 +26,7 @@ export const LobbyRoom: React.FC<LobbyRoomProps> = ({
   onStartGame,
   onLeaveRoom,
   onInvitePlayerId,
+  onAddFriend,
 }) => {
   const [inviteInput, setInviteInput] = useState('');
   const [inviteStatus, setInviteStatus] = useState<{ text: string; isError: boolean } | null>(null);
@@ -248,9 +250,22 @@ export const LobbyRoom: React.FC<LobbyRoomProps> = ({
               </div>
             </div>
 
-            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: p.ready ? '#a7f3d0' : '#fda4af' }}>
-              {p.ready ? '✓ Ready' : '⏳ Not Ready'}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {p.userId !== myUserId && onAddFriend && (
+                <button
+                  type="button"
+                  className="secondary-ghost-btn"
+                  style={{ padding: '3px 8px', fontSize: '0.74rem' }}
+                  onClick={() => onAddFriend(p.userId)}
+                  title="Add as Friend"
+                >
+                  + Friend
+                </button>
+              )}
+              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: p.ready ? '#a7f3d0' : '#fda4af' }}>
+                {p.ready ? '✓ Ready' : '⏳ Not Ready'}
+              </span>
+            </div>
           </div>
         ))}
       </div>

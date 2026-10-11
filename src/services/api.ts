@@ -63,6 +63,31 @@ export const api = {
     return res.json();
   },
 
+  sendFriendRequest(fromUserId: string, targetPlayerId: string): Promise<{ success: boolean; error?: string; targetUser?: any; online?: boolean }> {
+    return new Promise((resolve) => {
+      if (!socket.connected) {
+        // Fallback to REST API if socket not connected
+        return this.addFriend(fromUserId, targetPlayerId).then((r) =>
+          resolve({ success: r.success, error: r.error, targetUser: r.friend, online: false })
+        );
+      }
+      socket.emit('send_friend_request', { fromUserId, targetPlayerId }, (res: any) => {
+        resolve(res || { success: false, error: 'No response from server' });
+      });
+    });
+  },
+
+  acceptFriendRequest(userId: string, friendId: string): Promise<{ success: boolean; error?: string }> {
+    return new Promise((resolve) => {
+      if (!socket.connected) {
+        return this.addFriend(userId, friendId).then((r) => resolve({ success: r.success, error: r.error }));
+      }
+      socket.emit('accept_friend_request', { userId, friendId }, (res: any) => {
+        resolve(res || { success: false, error: 'No response from server' });
+      });
+    });
+  },
+
   async useReferral(userId: string, referralCode: string): Promise<{ success: boolean; error?: string; rewardChips?: number; referrerName?: string }> {
     const res = await fetch(`${API_BASE}/refer/use`, {
       method: 'POST',

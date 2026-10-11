@@ -26,6 +26,7 @@ import { ModeSelect } from './components/ModeSelect';
 import type { GamePlayMode } from './components/ModeSelect';
 import { LobbyRoom } from './components/LobbyRoom';
 import { InvitationToast } from './components/InvitationToast';
+import { FriendRequestToast } from './components/FriendRequestToast';
 
 const USER_SESSION_KEY = 'six_cards_user_session_v1';
 const USER_STORAGE_KEY = 'six_cards_user_profile_v1';
@@ -56,7 +57,18 @@ export const App: React.FC = () => {
   const [isReplacingFromDiscardMode, setIsReplacingFromDiscardMode] = useState(false);
 
   // Invitation Toast state
-  const [incomingInvite, setIncomingInvite] = useState<{ fromName: string; roomCode: string } | null>(null);
+  const [incomingInvite, setIncomingInvite] = useState<{
+    fromName: string;
+    roomCode: string;
+    fromUserId?: string;
+  } | null>(null);
+
+  // Friend Request Toast state
+  const [incomingFriendRequest, setIncomingFriendRequest] = useState<{
+    fromUserId: string;
+    fromName: string;
+    fromAvatar: string;
+  } | null>(null);
 
   // Game Mode Selection
   const [selectedMode, setSelectedMode] = useState<GamePlayMode | null>(null);
@@ -134,6 +146,10 @@ export const App: React.FC = () => {
       setIncomingInvite(invite);
     });
 
+    socket.on('received_friend_request', (req: any) => {
+      setIncomingFriendRequest(req);
+    });
+
     socket.on('room_updated', (room: any) => {
       setActiveRoom((prev) =>
         prev
@@ -165,6 +181,7 @@ export const App: React.FC = () => {
       socket.off('connect', registerSocket);
       socket.off('online_players_update');
       socket.off('received_invitation');
+      socket.off('received_friend_request');
       socket.off('room_updated');
       socket.off('game_started');
       socket.off('room_state_update');
@@ -483,11 +500,33 @@ export const App: React.FC = () => {
         <InvitationToast
           fromName={incomingInvite.fromName}
           roomCode={incomingInvite.roomCode}
-          onAccept={(code) => {
+          onAccept={async (code) => {
+            const hostUserId = incomingInvite.fromUserId;
             setIncomingInvite(null);
+            if (currentUser && hostUserId && hostUserId !== currentUser.id) {
+              await api.addFriend(currentUser.id, hostUserId).catch(() => {});
+            }
             handleJoinRoom(code);
           }}
           onDecline={() => setIncomingInvite(null)}
+        />
+      )}
+
+      {/* INCOMING FRIEND REQUEST POPUP TOAST */}
+      {incomingFriendRequest && (
+        <FriendRequestToast
+          fromName={incomingFriendRequest.fromName}
+          fromAvatar={incomingFriendRequest.fromAvatar}
+          fromUserId={incomingFriendRequest.fromUserId}
+          onAccept={async (targetUserId, targetName) => {
+            setIncomingFriendRequest(null);
+            if (currentUser) {
+              await api.acceptFriendRequest(currentUser.id, targetUserId).catch(() => {});
+              await api.addFriend(currentUser.id, targetUserId).catch(() => {});
+              alert(`🎉 You and ${targetName} are now friends! Check your Profile -> Friends tab.`);
+            }
+          }}
+          onDecline={() => setIncomingFriendRequest(null)}
         />
       )}
 
@@ -605,6 +644,13 @@ export const App: React.FC = () => {
             onStartGame={handleStartRoomGame}
             onLeaveRoom={handleLeaveRoom}
             onInvitePlayerId={handleInvitePlayer}
+            onAddFriend={async (targetId) => {
+              if (!currentUser) return false;
+              await api.sendFriendRequest(currentUser.id, targetId);
+              await api.addFriend(currentUser.id, targetId);
+              alert('Friend added! Check your Profile -> Friends tab.');
+              return true;
+            }}
           />
         </main>
       )}

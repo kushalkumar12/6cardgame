@@ -72,6 +72,10 @@ describe('SQL Database & Repository Layer (Test Profile)', () => {
       await UserRepository.addFriend('P-9999', 'P-8888');
       const friends = await UserRepository.getFriends('P-9999');
       expect(friends.some((f) => f.id === 'P-8888')).toBe(true);
+
+      // Verify mutual/bidirectional appearance in Profile Friends
+      const reverseFriends = await UserRepository.getFriends('P-8888');
+      expect(reverseFriends.some((f) => f.id === 'P-9999')).toBe(true);
     });
   });
 

@@ -39,9 +39,9 @@ export interface ProfileConfig {
 
 function resolveDatabaseUrl(): string {
   if (currentProfile === 'test') {
-    return process.env.TEST_DATABASE_URL || process.env.DATABASE_URL || '';
+    return process.env.TEST_DATABASE_URL || process.env.DATABASE_URL || 'postgresql://postgres:admin@localhost:5432/6cardgame';
   }
-  return process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/sixcardgame';
+  return process.env.DATABASE_URL || 'postgresql://postgres:admin@localhost:5432/6cardgame';
 }
 
 function resolveSsl(url: string): boolean | { rejectUnauthorized: boolean } {

@@ -352,31 +352,30 @@ let activeDatabase: IDatabase | null = null;
 export async function getDatabase(): Promise<IDatabase> {
   if (activeDatabase) return activeDatabase;
 
-  // In test profile, use MockDatabase directly for fast headless tests
-  if (config.isTest) {
-    activeDatabase = new MockDatabase();
-    await activeDatabase.initSchema();
-    return activeDatabase;
-  }
+  // Attempt real PostgreSQL connection for Test, Dev and Prod
+  if (config.databaseUrl) {
+    try {
+      const pgDb = new PostgresDatabase();
+      await pgDb.query('SELECT 1');
+      await pgDb.initSchema();
+      activeDatabase = pgDb;
+      const targetHost = config.databaseUrl.includes('@')
+        ? config.databaseUrl.split('@')[1]
+        : config.databaseUrl;
+      console.log(`🔌 Connected to PostgreSQL (${config.profile.toUpperCase()} profile) -> ${targetHost}`);
+      return activeDatabase;
+    } catch (err: any) {
+      if (config.isProd) {
+        console.error('❌ Critical: Failed to connect to PostgreSQL in PROD profile:', err.message);
+        throw err;
+      }
 
-  // Attempt real PostgreSQL connection for Dev and Prod
-  try {
-    const pgDb = new PostgresDatabase();
-    await pgDb.query('SELECT 1');
-    await pgDb.initSchema();
-    activeDatabase = pgDb;
-    console.log(`🔌 Connected to PostgreSQL (${config.profile} profile)`);
-    return activeDatabase;
-  } catch (err: any) {
-    if (config.isProd) {
-      console.error('❌ Critical: Failed to connect to PostgreSQL in PROD profile:', err.message);
-      throw err;
+      console.warn(`⚠️  Notice: PostgreSQL could not be reached (${err.message}).`);
+      console.warn('   Falling back to in-memory SQL mock until DATABASE_URL is reachable.');
     }
-
-    console.warn(`⚠️  Notice: PostgreSQL could not be reached (${err.message}).`);
-    console.warn('   Falling back to in-memory SQL mock for local development until DATABASE_URL is configured.');
-    activeDatabase = new MockDatabase();
-    await activeDatabase.initSchema();
-    return activeDatabase;
   }
+
+  activeDatabase = new MockDatabase();
+  await activeDatabase.initSchema();
+  return activeDatabase;
 }

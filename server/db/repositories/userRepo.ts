@@ -63,7 +63,15 @@ export const UserRepository = {
 
     await db.query(
       `INSERT INTO users (id, username, avatar, auth_provider, referral_code, referred_by, referral_count, chips, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       ON CONFLICT (id) DO UPDATE SET
+         username = EXCLUDED.username,
+         avatar = EXCLUDED.avatar,
+         auth_provider = EXCLUDED.auth_provider,
+         referral_code = EXCLUDED.referral_code,
+         referred_by = COALESCE(EXCLUDED.referred_by, users.referred_by),
+         chips = EXCLUDED.chips,
+         updated_at = EXCLUDED.updated_at`,
       [
         fullUser.id,
         fullUser.username,

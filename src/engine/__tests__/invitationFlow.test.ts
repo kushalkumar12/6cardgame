@@ -21,20 +21,31 @@ describe('Real-Time Multiplayer Invitation System', () => {
     });
 
     // Register both users
-    socket1.emit('register_user', {
-      userId: 'P-1001',
-      username: 'AlphaPlayer',
-      avatar: '♠️',
+    await new Promise<void>((resolve) => {
+      let registered = 0;
+      const done = () => {
+        registered++;
+        if (registered === 2) resolve();
+      };
+      socket1.emit(
+        'register_user',
+        {
+          userId: 'P-1001',
+          username: 'AlphaPlayer',
+          avatar: '♠️',
+        },
+        done
+      );
+      socket2.emit(
+        'register_user',
+        {
+          userId: 'P-1002',
+          username: 'BetaPlayer',
+          avatar: '💎',
+        },
+        done
+      );
     });
-
-    socket2.emit('register_user', {
-      userId: 'P-1002',
-      username: 'BetaPlayer',
-      avatar: '💎',
-    });
-
-    // Small delay for server state map registration
-    await new Promise((r) => setTimeout(r, 50));
 
     // Client 1 creates a room
     let roomCode = '';

@@ -29,8 +29,21 @@ const io = new Server(server, {
   },
 });
 
-// Initialize Database Schema on boot
-getDatabase().catch((err) => {
+import { ensureDatabaseExists } from './db/createDatabase';
+
+// Initialize Database and Schema on boot
+async function initServerDatabase() {
+  if (config.isDev && (config.databaseUrl.includes('localhost') || config.databaseUrl.includes('127.0.0.1'))) {
+    try {
+      await ensureDatabaseExists();
+    } catch {
+      // Continue to getDatabase()
+    }
+  }
+  await getDatabase();
+}
+
+initServerDatabase().catch((err) => {
   console.error('Failed to initialize database:', err);
 });
 
@@ -393,43 +406,60 @@ async function broadcastOnlineList() {
   }
 }
 
+// High-performance L1 In-Memory Socket Map (0ms latency lookup) + L2 PostgreSQL Persistence
+const userSockets = new Map<string, Set<string>>();
+
 io.on('connection', (socket: Socket) => {
   let currentUserId: string | null = null;
   let currentRoomCode: string | null = null;
 
   // Register user connection into SQL connections table
-  socket.on('register_user', async (payload: any) => {
-    const userId = typeof payload === 'string' ? payload : payload?.userId;
-    const username = typeof payload === 'object' ? payload?.username : undefined;
-    const avatar = typeof payload === 'object' ? payload?.avatar : undefined;
-    if (!userId) return;
+  socket.on('register_user', async (payload: any, callback?: Function) => {
+    try {
+      const userId = typeof payload === 'string' ? payload : payload?.userId;
+      const username = typeof payload === 'object' ? payload?.username : undefined;
+      const avatar = typeof payload === 'object' ? payload?.avatar : undefined;
+      if (!userId) return;
 
-    currentUserId = userId;
-    await ConnectionRepository.register(socket.id, userId);
+      currentUserId = userId;
 
-    if (username) {
-      const existing = await UserRepository.findById(userId);
-      if (existing) {
-        await UserRepository.create({
-          ...existing,
-          username,
-          avatar: avatar || existing.avatar,
-        });
-      } else {
-        await UserRepository.create({
-          id: userId,
-          username,
-          avatar: avatar || '🃏',
-          auth_provider: 'guest',
-          referral_code: `REF-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
-          referral_count: 0,
-          chips: 1000,
-        });
+      // 1. Instant L1 memory cache update
+      if (!userSockets.has(userId)) {
+        userSockets.set(userId, new Set());
       }
-    }
+      userSockets.get(userId)!.add(socket.id);
 
-    io.emit('user_presence_change', { userId, online: true });
-    await broadcastOnlineList();
+      // 2. Persistent L2 SQL table update
+      await ConnectionRepository.register(socket.id, userId);
+
+      if (username) {
+        const existing = await UserRepository.findById(userId);
+        if (existing) {
+          await UserRepository.create({
+            ...existing,
+            username,
+            avatar: avatar || existing.avatar,
+          });
+        } else {
+          await UserRepository.create({
+            id: userId,
+            username,
+            avatar: avatar || '🃏',
+            auth_provider: 'guest',
+            referral_code: `REF-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+            referral_count: 0,
+            chips: 1000,
+          });
+        }
+      }
+
+      io.emit('user_presence_change', { userId, online: true });
+      broadcastOnlineList();
+      if (typeof callback === 'function') callback({ success: true });
+    } catch (err: any) {
+      console.error('Error registering user socket:', err.message);
+      if (typeof callback === 'function') callback({ success: false, error: err.message });
+    }
   });
 
   // Request online players list
@@ -548,7 +578,8 @@ io.on('connection', (socket: Socket) => {
       });
     }
 
-    const socketIds = await ConnectionRepository.getSocketsForUser(targetUser.id);
+    const memorySockets = userSockets.get(targetUser.id);
+    const socketIds = memorySockets ? Array.from(memorySockets) : [];
     if (socketIds.length === 0) {
       return callback({
         success: false,
@@ -719,6 +750,12 @@ io.on('connection', (socket: Socket) => {
   });
 
   socket.on('disconnect', async () => {
+    if (currentUserId && userSockets.has(currentUserId)) {
+      userSockets.get(currentUserId)!.delete(socket.id);
+      if (userSockets.get(currentUserId)!.size === 0) {
+        userSockets.delete(currentUserId);
+      }
+    }
     await ConnectionRepository.remove(socket.id);
 
     if (currentUserId) {

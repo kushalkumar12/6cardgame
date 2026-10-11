@@ -4,6 +4,19 @@ A high-stakes, responsive multiplayer card game for 2 to 6 players combining hid
 
 ---
 
+## 📚 Complete Documentation Index
+
+For complete and detailed technical references, consult the dedicated guides below:
+
+| Documentation | Location | Contents & Purpose |
+| :--- | :--- | :--- |
+| **Frontend Documentation** | [frontend/README.md](frontend/README.md) | React 19 architecture, component hierarchy, visual design system, state machine, and Vercel edge deployment. |
+| **Backend Documentation** | [backend/README.md](backend/README.md) | Node.js + Express + Socket.IO server, profiles (`dev`/`test`/`prod`), PostgreSQL schema, REST APIs, and WebSocket events. |
+| **Game Rules & Scoring Engine** | [docs/GAME_RULES_AND_SCORING.md](docs/GAME_RULES_AND_SCORING.md) | Card point values, 7/8/Jack special powers, matching elimination rules, penalties, and victory evaluation. |
+| **Cloud Architecture & Runbook** | [docs/ARCHITECTURE_AND_DEPLOYMENT.md](docs/ARCHITECTURE_AND_DEPLOYMENT.md) | Step-by-step production setup linking Vercel (Frontend), Render (WebSockets), and Supabase (PostgreSQL). |
+
+---
+
 ## 📁 Project Architecture
 
 The repository is organized into two standalone, decoupled applications:
@@ -17,7 +30,7 @@ The repository is organized into two standalone, decoupled applications:
 │   ├── package.json              # Frontend dependencies (React 19, Vite 8, Socket.IO client)
 │   ├── vite.config.ts            # Vite configuration
 │   ├── vercel.json               # Vercel SPA rewrites
-│   └── .env.example              # VITE_API_URL, VITE_SOCKET_URL
+│   └── README.md                 # Detailed Frontend Documentation
 │
 ├── backend/                      # Standalone Node.js + Socket.IO Server (Deploy to Render)
 │   ├── src/
@@ -27,10 +40,14 @@ The repository is organized into two standalone, decoupled applications:
 │   │   └── server.ts             # Express & Socket.IO server
 │   ├── package.json              # Backend dependencies (Express, Socket.IO, pg, tsx)
 │   ├── tsconfig.json             # Node.js TypeScript configuration
-│   └── .env.example              # DATABASE_URL, APP_PROFILE, PORT
+│   └── README.md                 # Detailed Backend Documentation
+│
+├── docs/                         # Specifications & Runbooks
+│   ├── GAME_RULES_AND_SCORING.md # Rules & scoring reference
+│   └── ARCHITECTURE_AND_DEPLOYMENT.md # Cloud deployment guide
 │
 ├── package.json                  # Root npm workspace runner
-└── README.md
+└── README.md                     # Root project documentation
 ```
 
 ---
@@ -43,9 +60,9 @@ cd backend
 npm install
 npm run dev
 ```
-*(Runs on `http://localhost:3001` using local PostgreSQL `6cardgame`)*
+*(Runs on `http://localhost:3001` with Dev profile connected to local PostgreSQL `6cardgame`)*
 
-### 2. Run Frontend
+### 2. Run Frontend App
 ```bash
 cd frontend
 npm install
@@ -55,25 +72,8 @@ npm run dev
 
 ---
 
-## ☁️ Deployment Guide
+## ☁️ Deployment Summary
 
-### A. Deploy Frontend to Vercel
-1. In Vercel, import `kushalkumar12/6cardgame`.
-2. Set **Root Directory** to `frontend`.
-3. Framework Preset: **Vite**.
-4. Add Environment Variables:
-   - `VITE_API_URL`: Your Render backend URL (e.g. `https://six-cards-backend.onrender.com`)
-   - `VITE_SOCKET_URL`: Your Render backend URL (e.g. `https://six-cards-backend.onrender.com`)
-5. Click **Deploy**.
-
-### B. Deploy Backend to Render
-1. In Render, create a new **Web Service** from `kushalkumar12/6cardgame`.
-2. Set **Root Directory** to `backend`.
-3. Set **Build Command**: `npm install`
-4. Set **Start Command**: `npm start`
-5. Add Environment Variables:
-   - `APP_PROFILE`: `prod`
-   - `PORT`: `3001`
-   - `DATABASE_URL`: Your Supabase connection string (`postgresql://postgres:[PASSWORD]@...pooler.supabase.com:6543/postgres?sslmode=require`)
-   - `ALLOWED_ORIGINS`: Your Vercel frontend URL
-6. Click **Deploy Web Service**.
+1. **Frontend**: Deploy `frontend` directory to **Vercel** with `VITE_API_URL` and `VITE_SOCKET_URL`.
+2. **Backend**: Deploy `backend` directory to **Render** with `DATABASE_URL` (Supabase URI) and `APP_PROFILE=prod`.
+3. **Database**: Managed on **Supabase** (PostgreSQL with SSL enabled).

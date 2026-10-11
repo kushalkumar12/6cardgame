@@ -1,64 +1,72 @@
 import React from 'react';
+import { soundManager } from '../services/soundManager';
 
 interface RulesModalProps {
   onClose: () => void;
 }
 
 export const RulesModal: React.FC<RulesModalProps> = ({ onClose }) => {
-  return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-dialog" style={{ maxWidth: '420px', textAlign: 'left', maxHeight: '88vh', overflowY: 'auto', position: 'relative' }} onClick={(e) => e.stopPropagation()}>
-        <button
-          type="button"
-          className="modal-close-circle-btn"
-          onClick={onClose}
-          aria-label="Close Rules"
-          title="Close Rules"
-        >
-          ✕
-        </button>
+  const handleClose = () => {
+    soundManager.playClick();
+    onClose();
+  };
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-          <h2 style={{ margin: 0, fontSize: '1.25rem', color: '#ffffff' }}>📜 Game Rules</h2>
+  return (
+    <div className="modal-backdrop" onClick={handleClose}>
+      <div className="rules-modal-card" onClick={(e) => e.stopPropagation()}>
+        {/* FIXED / STICKY HEADER (STAYS IN PLACE AT TOP) */}
+        <div className="rules-modal-header">
+          <h2 className="rules-modal-title">📜 Game Rules</h2>
+          <button
+            type="button"
+            className="rules-modal-close-btn"
+            onClick={handleClose}
+            aria-label="Close Rules"
+            title="Close Rules"
+            id="rules-close-btn"
+          >
+            ✕
+          </button>
         </div>
 
-        <div style={{ fontSize: '0.92rem', color: '#cbd5e1', lineHeight: 1.6, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div>
-            <h3 style={{ color: 'var(--gold-light)', fontSize: '1.05rem', marginBottom: 6 }}>
-              🎯 Objective & Victory Rule
+        {/* SCROLLABLE RULES CONTENT BODY */}
+        <div className="rules-modal-scroll-body">
+          <div className="rules-section">
+            <h3 className="rules-section-title">
+              🎯 Objective &amp; Victory Rule
             </h3>
             <p>
               The objective is to finish the game with the <strong>lowest total card score</strong> or achieve an <strong>instant zero-card automatic victory</strong> by eliminating all your cards.
             </p>
           </div>
 
-          <div>
-            <h3 style={{ color: 'var(--gold-light)', fontSize: '1.05rem', marginBottom: 6 }}>
+          <div className="rules-section">
+            <h3 className="rules-section-title">
               🔢 Exact Scoring Values
             </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8, background: 'rgba(0,0,0,0.3)', padding: 12, borderRadius: 8 }}>
+            <div className="rules-scoring-grid">
               <div><strong>King (K):</strong> 0 pts</div>
               <div><strong>Ace (A):</strong> 1 pt</div>
               <div><strong>2 – 9:</strong> 2 – 9 pts</div>
-              <div><strong>10 & Queen (Q):</strong> 10 pts</div>
+              <div><strong>10 &amp; Queen (Q):</strong> 10 pts</div>
               <div><strong>Jack (J):</strong> 40 pts</div>
             </div>
-            <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginTop: 6 }}>
+            <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginTop: 8 }}>
               * No Jokers are used. Decks: 2 players = 1 deck (52 cards); 3-4 players = 2 decks (104 cards); 5-6 players = 3 decks (156 cards).
             </p>
           </div>
 
-          <div>
-            <h3 style={{ color: 'var(--gold-light)', fontSize: '1.05rem', marginBottom: 6 }}>
-              🃏 Setup & Initial Memorization
+          <div className="rules-section">
+            <h3 className="rules-section-title">
+              🃏 Setup &amp; Initial Memorization
             </h3>
             <p>
               Each player receives 6 face-down cards in fixed positions. Before Round 1 begins, each player privately reveals and memorizes exactly <strong>2 of their own cards</strong>, then returns them face down.
             </p>
           </div>
 
-          <div>
-            <h3 style={{ color: 'var(--gold-light)', fontSize: '1.05rem', marginBottom: 6 }}>
+          <div className="rules-section">
+            <h3 className="rules-section-title">
               ⚡ Turn Actions
             </h3>
             <ul style={{ paddingLeft: 20 }}>
@@ -69,13 +77,14 @@ export const RulesModal: React.FC<RulesModalProps> = ({ onClose }) => {
                   <li><strong>Use Ability (if 7, 8, or Jack):</strong> Execute its special power, then discard it.</li>
                 </ul>
               </li>
-              <li><strong>Attempt Matching Elimination:</strong> If the discard pile is not empty, you can attempt to eliminate 1 or more cards from your hand that match the top discard card&apos;s point value.</li>
+              <li><strong>Take from Discard Pile:</strong> Pick the top face-up discard and swap it into your hand.</li>
+              <li><strong>Attempt Matching Elimination:</strong> If the discard pile is not empty, you can eliminate 1 or more cards from your hand that match the top discard card&apos;s point value.</li>
               <li><strong>Declare Victory:</strong> Allowed on your turn after Round 1 completes. Immediately ends the game and reveals all hands. Lowest total score wins!</li>
             </ul>
           </div>
 
-          <div>
-            <h3 style={{ color: 'var(--gold-light)', fontSize: '1.05rem', marginBottom: 6 }}>
+          <div className="rules-section">
+            <h3 className="rules-section-title">
               ✨ Special Abilities
             </h3>
             <ul style={{ paddingLeft: 20 }}>
@@ -85,9 +94,9 @@ export const RulesModal: React.FC<RulesModalProps> = ({ onClose }) => {
             </ul>
           </div>
 
-          <div>
-            <h3 style={{ color: 'var(--gold-light)', fontSize: '1.05rem', marginBottom: 6 }}>
-              💥 Elimination & All-or-Nothing Penalty
+          <div className="rules-section">
+            <h3 className="rules-section-title">
+              💥 Elimination &amp; All-or-Nothing Penalty
             </h3>
             <p>
               Matching is based <strong>strictly on numeric point value</strong> (suits and ranks do not matter; e.g. a 10 matches a Queen because both are worth 10 points; a King matches a King because both are worth 0 points).
@@ -97,8 +106,8 @@ export const RulesModal: React.FC<RulesModalProps> = ({ onClose }) => {
             </p>
           </div>
 
-          <div>
-            <h3 style={{ color: 'var(--gold-light)', fontSize: '1.05rem', marginBottom: 6 }}>
+          <div className="rules-section">
+            <h3 className="rules-section-title">
               🏁 Game End Conditions
             </h3>
             <ol style={{ paddingLeft: 20 }}>
@@ -107,12 +116,18 @@ export const RulesModal: React.FC<RulesModalProps> = ({ onClose }) => {
               <li><strong>Draw Pile Empty:</strong> If the draw pile empties during a draw or penalty, the game ends immediately. Lowest total score wins. Discards are never reshuffled!</li>
             </ol>
           </div>
-        </div>
 
-        <div style={{ marginTop: 24, textAlign: 'center' }}>
-          <button className="primary-gold-btn" style={{ width: 'auto', padding: '12px 32px' }} onClick={onClose}>
-            Got It! Return to Game
-          </button>
+          {/* RETURN TO GAME BUTTON */}
+          <div style={{ marginTop: 24, textAlign: 'center' }}>
+            <button
+              type="button"
+              className="primary-blue-btn"
+              style={{ width: 'auto', padding: '12px 32px' }}
+              onClick={handleClose}
+            >
+              Got It! Return to Game
+            </button>
+          </div>
         </div>
       </div>
     </div>

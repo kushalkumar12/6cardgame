@@ -1,0 +1,9 @@
+# Dependencies and builds
+node_modules
+dist
+logs
+*.log
+
+# Sensitive environment files
+.env.local
+.env.*.local

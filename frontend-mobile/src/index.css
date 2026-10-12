@@ -1524,39 +1524,72 @@ button:active {
 }
 
 /* ========================================================
-   PROFILE MODAL DYNAMIC TAB BAR & AVATAR PICKER
+   PROFILE MODAL ROCK-SOLID GAME CARD & TAB SYSTEM
+   Guarantees 100% stable viewport: zero vertical jumping
+   when switching tabs, loading data, or scrolling.
    ======================================================== */
+
+.profile-modal-card {
+  background: linear-gradient(180deg, #0e1726 0%, #090e1a 100%);
+  border: 1.5px solid rgba(56, 189, 248, 0.25);
+  border-radius: 22px;
+  color: var(--text-white);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.85), 0 0 40px rgba(14, 165, 233, 0.08);
+  width: 94%;
+  max-width: 440px;
+  height: min(86vh, 650px);
+  min-height: 520px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  animation: modalPop 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.profile-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 18px 12px;
+  background: rgba(14, 23, 38, 0.98);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+}
 
 .profile-tab-bar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  background: rgba(15, 23, 42, 0.7);
-  padding: 6px;
-  border-radius: 14px;
+  justify-content: space-between;
+  gap: 4px;
+  background: rgba(15, 23, 42, 0.75);
+  padding: 4px;
+  border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  margin-bottom: 20px;
-  width: 100%;
+  margin: 12px 16px 0;
+  flex-shrink: 0;
+  width: calc(100% - 32px);
   box-sizing: border-box;
 }
 
 .profile-tab-item {
   display: flex;
   align-items: center;
-  justifyContent: center;
-  gap: 6px;
-  padding: 8px 10px;
+  justify-content: center;
+  gap: 5px;
+  padding: 8px 6px;
   border-radius: 10px;
   border: 1px solid transparent;
   background: transparent;
   color: #94a3b8;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 600;
   user-select: none;
-  flex: 0 0 auto;
+  flex: 1;
 }
 
 .profile-tab-item:hover {
@@ -1565,31 +1598,85 @@ button:active {
 }
 
 .profile-tab-item.active {
-  flex: 1 1 auto;
+  flex: 1.6;
   background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
   color: #ffffff;
   border-color: #38bdf8;
   box-shadow: 0 2px 10px rgba(37, 99, 235, 0.35);
-  padding: 8px 12px;
+  padding: 8px 8px;
 }
 
 .profile-tab-item:not(.active) {
-  min-width: 38px;
-  padding: 8px 6px;
-  flex: 0 0 auto;
+  min-width: 36px;
+  padding: 8px 4px;
+  flex: 1;
 }
 
 .profile-tab-item .tab-icon {
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   line-height: 1;
   display: flex;
   align-items: center;
-  justifyContent: center;
+  justify-content: center;
 }
 
 .profile-tab-item .tab-label {
   animation: fadeInTabLabel 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   letter-spacing: -0.01em;
+}
+
+.profile-modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 14px 16px 16px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.profile-modal-body::-webkit-scrollbar {
+  width: 4px;
+}
+
+.profile-modal-body::-webkit-scrollbar-thumb {
+  background: rgba(56, 189, 248, 0.2);
+  border-radius: 4px;
+}
+
+.profile-modal-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  background: rgba(10, 14, 26, 0.98);
+}
+
+.stats-grid-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.stat-card-compact {
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 12px 10px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.chips-hero-banner {
+  background: linear-gradient(135deg, rgba(217, 119, 6, 0.16) 0%, rgba(245, 158, 11, 0.08) 100%);
+  border: 1.5px solid rgba(245, 158, 11, 0.35);
+  border-radius: 14px;
+  padding: 14px;
+  text-align: center;
+  margin-bottom: 14px;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.1);
 }
 
 @keyframes fadeInTabLabel {

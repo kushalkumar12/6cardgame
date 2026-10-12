@@ -12,6 +12,25 @@ const SOCKET_URL =
   (import.meta.env.PROD ? DEFAULT_PROD_URL : 'http://localhost:3001');
 const API_BASE = `${SERVER_URL}/api`;
 
+async function smartFetch(urlPath: string, init?: RequestInit): Promise<Response> {
+  const primaryUrl = `${API_BASE}${urlPath}`;
+  try {
+    const res = await fetch(primaryUrl, init);
+    return res;
+  } catch (err) {
+    if (SERVER_URL !== DEFAULT_PROD_URL) {
+      const fallbackUrl = `${DEFAULT_PROD_URL}/api${urlPath}`;
+      try {
+        const fallbackRes = await fetch(fallbackUrl, init);
+        return fallbackRes;
+      } catch {
+        // rethrow original error if fallback also fails
+      }
+    }
+    throw err;
+  }
+}
+
 export const socket: Socket = io(SOCKET_URL, {
   autoConnect: false,
   transports: ['websocket', 'polling'],
@@ -30,7 +49,7 @@ export const api = {
     return SERVER_URL;
   },
   async getHealth(): Promise<SystemHealth> {
-    const res = await fetch(`${API_BASE}/health`);
+    const res = await smartFetch('/health');
     return res.json();
   },
 
@@ -40,7 +59,7 @@ export const api = {
     googleProfile?: any;
     referralCodeInput?: string;
   }): Promise<{ success: boolean; user: UserProfile }> {
-    const res = await fetch(`${API_BASE}/auth/login`, {
+    const res = await smartFetch('/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -49,22 +68,22 @@ export const api = {
   },
 
   async getProfile(userId: string): Promise<UserProfile> {
-    const res = await fetch(`${API_BASE}/users/profile/${userId}`);
+    const res = await smartFetch(`/users/profile/${userId}`);
     return res.json();
   },
 
   async searchUsers(query: string): Promise<FriendUser[]> {
-    const res = await fetch(`${API_BASE}/users/search?q=${encodeURIComponent(query)}`);
+    const res = await smartFetch(`/users/search?q=${encodeURIComponent(query)}`);
     return res.json();
   },
 
   async getFriends(userId: string): Promise<FriendUser[]> {
-    const res = await fetch(`${API_BASE}/friends/list/${userId}`);
+    const res = await smartFetch(`/friends/list/${userId}`);
     return res.json();
   },
 
   async addFriend(userId: string, targetId: string): Promise<{ success: boolean; error?: string; friend?: any }> {
-    const res = await fetch(`${API_BASE}/friends/add`, {
+    const res = await smartFetch('/friends/add', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, targetId }),
@@ -98,7 +117,7 @@ export const api = {
   },
 
   async useReferral(userId: string, referralCode: string): Promise<{ success: boolean; error?: string; rewardChips?: number; referrerName?: string }> {
-    const res = await fetch(`${API_BASE}/refer/use`, {
+    const res = await smartFetch('/refer/use', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, referralCode }),
@@ -107,17 +126,17 @@ export const api = {
   },
 
   async getScoreboard(): Promise<ScoreboardEntry[]> {
-    const res = await fetch(`${API_BASE}/scoreboard`);
+    const res = await smartFetch('/scoreboard');
     return res.json();
   },
 
   async getOnlinePlayers(excludeUserId?: string): Promise<{ id: string; username: string; avatar: string }[]> {
-    const res = await fetch(`${API_BASE}/online-players${excludeUserId ? `?exclude=${encodeURIComponent(excludeUserId)}` : ''}`);
+    const res = await smartFetch(`/online-players${excludeUserId ? `?exclude=${encodeURIComponent(excludeUserId)}` : ''}`);
     return res.json();
   },
 
   async getGameHistory(): Promise<any[]> {
-    const res = await fetch(`${API_BASE}/history`);
+    const res = await smartFetch('/history');
     return res.json();
   },
 };

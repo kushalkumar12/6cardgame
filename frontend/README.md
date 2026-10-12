@@ -142,3 +142,13 @@ npm run build
    - `VITE_API_URL`: Your backend URL (e.g. `https://six-cards-backend.onrender.com`)
    - `VITE_SOCKET_URL`: Your backend URL (e.g. `https://six-cards-backend.onrender.com`)
 5. Click **Deploy**. Vercel will build and publish your frontend to a global edge domain.
+
+---
+
+## 7. Mobile Companion App (`frontend-mobile/`)
+
+For smartphone users, a dedicated mobile frontend is available in [frontend-mobile/](file:///d:/JavaProjects/6CardGame/frontend-mobile/):
+- **Tailored Mobile UI/UX**: Compact touch controls, bottom action sheets, horizontal opponent card strips, and mobile-optimized modals.
+- **Synthesized Web Audio Engine**: Zero-asset, zero-latency haptic-like sound effects and melodic ambient background music.
+- **Cross-Platform Compatibility**: Full interoperability with desktop `frontend/` players—rooms, invitations, friends, rankings, and referrals share the exact same backend server and database.
+

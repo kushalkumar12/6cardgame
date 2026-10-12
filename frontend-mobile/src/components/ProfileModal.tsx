@@ -365,45 +365,86 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           </div>
         )}
 
-        {/* TAB 2: SCOREBOARD */}
+        {/* TAB 2: SCOREBOARD & RANKING */}
         {activeTab === 'scoreboard' && (
           <div>
-            <h3 style={{ fontSize: '1.1rem', color: 'var(--gold-light)', marginBottom: 12 }}>
-              🏆 Global Scoreboard & Leaderboard
-            </h3>
-            <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-              <table className="results-table">
-                <thead>
-                  <tr>
-                    <th>Rank</th>
-                    <th>Player</th>
-                    <th>Player ID</th>
-                    <th>Wins</th>
-                    <th>Win Rate</th>
-                    <th>Chips</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {scoreboard.map((entry, idx) => {
-                    const entryWinRate = entry.stats.gamesPlayed > 0
-                      ? Math.round((entry.stats.gamesWon / entry.stats.gamesPlayed) * 100)
-                      : 0;
-                    return (
-                      <tr key={entry.id} className={entry.id === user.id ? 'winner-row' : ''}>
-                        <td>#{idx + 1}</td>
-                        <td>
-                          <span style={{ marginRight: 6 }}>{entry.avatar}</span>
-                          <strong>{entry.username}</strong>
-                        </td>
-                        <td><code>{entry.id}</code></td>
-                        <td>{entry.stats.gamesWon}</td>
-                        <td>{entryWinRate}%</td>
-                        <td style={{ color: 'var(--gold-light)' }}>🪙 {entry.chips}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <h3 style={{ fontSize: '1.05rem', color: '#38bdf8', margin: 0, fontWeight: 700 }}>
+                🏆 Global Scoreboard & Ranking
+              </h3>
+              <button
+                type="button"
+                className="secondary-ghost-btn"
+                style={{ padding: '4px 10px', fontSize: '0.78rem' }}
+                onClick={() => {
+                  soundManager.playClick();
+                  api.getScoreboard().then(setScoreboard).catch(() => {});
+                }}
+              >
+                🔄 Refresh
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '380px', overflowY: 'auto' }}>
+              {scoreboard.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                  Loading ranking entries...
+                </div>
+              ) : (
+                scoreboard.map((entry, idx) => {
+                  const entryWinRate = entry.stats.gamesPlayed > 0
+                    ? Math.round((entry.stats.gamesWon / entry.stats.gamesPlayed) * 100)
+                    : 0;
+                  const isMe = entry.id === user.id;
+                  const rankBadge = idx === 0 ? '🥇 #1' : idx === 1 ? '🥈 #2' : idx === 2 ? '🥉 #3' : `#${idx + 1}`;
+
+                  return (
+                    <div
+                      key={entry.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '10px 12px',
+                        background: isMe ? 'rgba(37, 99, 235, 0.15)' : 'rgba(15, 23, 42, 0.65)',
+                        border: isMe ? '1.5px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.06)',
+                        borderRadius: 12,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span
+                          style={{
+                            fontWeight: 800,
+                            fontSize: '0.85rem',
+                            color: idx === 0 ? '#fbbf24' : idx === 1 ? '#cbd5e1' : idx === 2 ? '#d97706' : '#94a3b8',
+                            minWidth: 32,
+                          }}
+                        >
+                          {rankBadge}
+                        </span>
+                        <Avatar avatar={entry.avatar} name={entry.username} size={34} />
+                        <div>
+                          <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#ffffff' }}>
+                            {entry.username} {isMe && <span style={{ color: '#38bdf8', fontSize: '0.72rem' }}>(You)</span>}
+                          </span>
+                          <span style={{ fontSize: '0.72rem', color: '#94a3b8', display: 'block' }}>
+                            ID: {entry.id}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '0.84rem', fontWeight: 700, color: '#38bdf8' }}>
+                          {entry.stats.gamesWon} Wins <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>({entryWinRate}%)</span>
+                        </div>
+                        <span style={{ fontSize: '0.74rem', color: '#fbbf24' }}>
+                          🪙 {entry.chips}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         )}
@@ -412,13 +453,15 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         {activeTab === 'friends' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <h3 style={{ fontSize: '1.1rem', color: 'var(--gold-light)', margin: 0 }}>
+              <h3 style={{ fontSize: '1.05rem', color: '#38bdf8', margin: 0, fontWeight: 700 }}>
                 👥 Friends & Player Search
               </h3>
               <button
+                type="button"
                 className="secondary-ghost-btn"
                 style={{ padding: '4px 10px', fontSize: '0.78rem' }}
                 onClick={() => {
+                  soundManager.playClick();
                   setFriendMsg('Refreshing friends list...');
                   api.getFriends(user.id).then((fl) => {
                     setFriends(fl);
@@ -431,66 +474,101 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             </div>
 
             {/* Search and Add Friend by Player ID */}
-            <div style={{ background: 'rgba(0,0,0,0.3)', padding: 14, borderRadius: 10, marginBottom: 18 }}>
-              <label style={{ fontSize: '0.85rem', color: 'var(--gold-light)', display: 'block', marginBottom: 6 }}>
-                Search & Add Player by ID or Username (e.g. <code>#P-1001</code>)
+            <div style={{ background: 'rgba(0,0,0,0.3)', padding: 12, borderRadius: 12, marginBottom: 16 }}>
+              <label style={{ fontSize: '0.82rem', color: '#94a3b8', display: 'block', marginBottom: 6 }}>
+                Search & Add Player by ID or Username:
               </label>
-              <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 6 }}>
                 <input
                   type="text"
                   className="player-name-input"
-                  style={{ flex: 1 }}
-                  placeholder="Enter Player ID like P-1001 or Name"
+                  style={{ flex: 1, padding: '8px 10px', fontSize: '0.84rem' }}
+                  placeholder="Enter Player ID like guest-xxx or name"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleSearchUsers();
                   }}
                 />
-                <button className="primary-gold-btn" style={{ width: 'auto', padding: '10px 20px' }} onClick={handleSearchUsers}>
+                <button
+                  type="button"
+                  className="primary-blue-btn"
+                  style={{ width: 'auto', padding: '8px 14px', fontSize: '0.82rem' }}
+                  onClick={handleSearchUsers}
+                >
                   Search
                 </button>
               </div>
 
               {friendMsg && (
-                <div style={{ marginTop: 10, fontSize: '0.85rem', color: '#a7f3d0' }}>
+                <div style={{ marginTop: 8, fontSize: '0.82rem', color: '#a7f3d0' }}>
                   {friendMsg}
                 </div>
               )}
 
               {/* Search Results */}
               {searchResults.length > 0 && (
-                <div style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 10 }}>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Search Results:</span>
-                  {searchResults.map((sr) => {
-                    const isAlreadyFriend = friends.some((f) => f.id === sr.id);
-                    return (
-                      <div key={sr.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0' }}>
-                        <span>{sr.avatar} {sr.username} (<code>{sr.id}</code>)</span>
-                        {isAlreadyFriend ? (
-                          <span style={{ fontSize: '0.78rem', color: '#a7f3d0', fontWeight: 600 }}>✓ Friend</span>
-                        ) : (
-                          <button className="secondary-ghost-btn" style={{ padding: '4px 10px', fontSize: '0.8rem' }} onClick={() => handleAddFriend(sr.id)}>
-                            + Add Friend
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
+                <div style={{ marginTop: 10, borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 8 }}>
+                  <span style={{ fontSize: '0.76rem', color: '#94a3b8' }}>Search Results:</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
+                    {searchResults.map((sr) => {
+                      const isAlreadyFriend = friends.some((f) => f.id === sr.id);
+                      return (
+                        <div
+                          key={sr.id}
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '6px 8px',
+                            background: 'rgba(0,0,0,0.2)',
+                            borderRadius: 8,
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <Avatar avatar={sr.avatar} name={sr.username} size={28} />
+                            <div>
+                              <span style={{ fontSize: '0.84rem', fontWeight: 600, color: '#f8fafc' }}>
+                                {sr.username}
+                              </span>
+                              <span style={{ fontSize: '0.7rem', color: '#94a3b8', display: 'block' }}>
+                                ID: {sr.id}
+                              </span>
+                            </div>
+                          </div>
+                          {isAlreadyFriend ? (
+                            <span style={{ fontSize: '0.76rem', color: '#4ade80', fontWeight: 600 }}>✓ Friend</span>
+                          ) : (
+                            <button
+                              type="button"
+                              className="secondary-ghost-btn"
+                              style={{ padding: '3px 8px', fontSize: '0.76rem' }}
+                              onClick={() => handleAddFriend(sr.id)}
+                            >
+                              + Add Friend
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>
 
             {/* Friend List */}
-            <h4 style={{ fontSize: '0.95rem', color: 'var(--text-main)', marginBottom: 10 }}>
-              Your Friends ({friends.length})
-            </h4>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <h4 style={{ fontSize: '0.88rem', color: '#f8fafc', margin: 0 }}>
+                Your Friends ({friends.length})
+              </h4>
+            </div>
+
             {friends.length === 0 ? (
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.84rem', textAlign: 'center', padding: '16px 0' }}>
                 You have not added any friends yet. Search above by Player ID to add your teammates!
               </p>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '240px', overflowY: 'auto' }}>
                 {friends.map((friend) => (
                   <div
                     key={friend.id}
@@ -498,31 +576,38 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
-                      background: 'rgba(0,0,0,0.25)',
-                      padding: '10px 14px',
-                      borderRadius: 8,
+                      background: 'rgba(15, 23, 42, 0.65)',
+                      border: '1px solid rgba(255, 255, 255, 0.06)',
+                      padding: '8px 12px',
+                      borderRadius: 10,
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontSize: '1.4rem' }}>{friend.avatar}</span>
+                      <Avatar avatar={friend.avatar} name={friend.username} size={34} />
                       <div>
-                        <strong>{friend.username}</strong>
-                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block' }}>
-                          ID: <code>{friend.id}</code>
+                        <span style={{ fontSize: '0.86rem', fontWeight: 700, color: '#ffffff' }}>
+                          {friend.username}
+                        </span>
+                        <span style={{ fontSize: '0.7rem', color: '#94a3b8', display: 'block' }}>
+                          ID: {friend.id}
                         </span>
                       </div>
-                      <span style={{ fontSize: '0.75rem', color: friend.online ? '#a7f3d0' : 'var(--text-muted)', marginLeft: 8 }}>
+                      <span style={{ fontSize: '0.72rem', color: friend.online ? '#4ade80' : '#64748b', marginLeft: 4 }}>
                         ● {friend.online ? 'Online' : 'Offline'}
                       </span>
                     </div>
 
                     {onInviteFriend && friend.online && (
                       <button
-                        className="header-btn"
-                        style={{ padding: '6px 12px', fontSize: '0.82rem' }}
-                        onClick={() => onInviteFriend(friend.id)}
+                        type="button"
+                        className="secondary-ghost-btn"
+                        style={{ padding: '4px 10px', fontSize: '0.76rem', background: 'rgba(56, 189, 248, 0.15)', borderColor: '#38bdf8' }}
+                        onClick={() => {
+                          soundManager.playClick();
+                          onInviteFriend(friend.id);
+                        }}
                       >
-                        ✉️ Invite to Game
+                        ✉️ Invite
                       </button>
                     )}
                   </div>

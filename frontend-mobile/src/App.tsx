@@ -25,6 +25,7 @@ import { ProfileModal } from './components/ProfileModal';
 import { ModeSelect } from './components/ModeSelect';
 import type { GamePlayMode } from './components/ModeSelect';
 import { LobbyRoom } from './components/LobbyRoom';
+import { MultiplayerRoomModal } from './components/MultiplayerRoomModal';
 import { InvitationToast } from './components/InvitationToast';
 import { FriendRequestToast } from './components/FriendRequestToast';
 
@@ -57,6 +58,7 @@ export const App: React.FC = () => {
   // Active UI Modals
   const [showProfile, setShowProfile] = useState(false);
   const [showRules, setShowRules] = useState(false);
+  const [showMultiplayerModal, setShowMultiplayerModal] = useState(false);
   const [showRoomDrawer, setShowRoomDrawer] = useState(false);
   const [showActionLog, setShowActionLog] = useState(false);
   const [showDeclareVictoryConfirm, setShowDeclareVictoryConfirm] = useState(false);
@@ -348,8 +350,8 @@ export const App: React.FC = () => {
     syncEngineState();
   };
 
-  // Mode 2: Create Room (LAN or Online Team)
-  const handleCreateRoom = (mode: 'lan' | 'online_team') => {
+  // Mode 2: Create Room (LAN, Online Team, or Multiplayer)
+  const handleCreateRoom = (mode: 'lan' | 'online_team' | 'multiplayer' = 'online_team', maxPlayers: number = 4) => {
     if (!currentUser) return;
     playSfx('click');
     socket.emit(
@@ -359,7 +361,7 @@ export const App: React.FC = () => {
         displayName: currentUser.username,
         avatar: currentUser.avatar,
         mode,
-        maxPlayers: 4,
+        maxPlayers,
       },
       (res: any) => {
         if (res.success) {
@@ -370,6 +372,9 @@ export const App: React.FC = () => {
             players: res.room.players,
           });
           setSelectedMode(mode);
+          setShowMultiplayerModal(false);
+        } else {
+          alert(res.error || 'Failed to create room');
         }
       }
     );
@@ -398,6 +403,7 @@ export const App: React.FC = () => {
           });
           setSelectedMode(res.room.mode);
           setJoinRoomCodeInput('');
+          setShowMultiplayerModal(false);
           setShowRoomDrawer(false);
         } else {
           alert(res.error || 'Could not join room');
@@ -566,6 +572,17 @@ export const App: React.FC = () => {
           />
         )}
 
+        {/* MULTIPLAYER ROOM SELECTION MODAL */}
+        <MultiplayerRoomModal
+          isOpen={showMultiplayerModal}
+          onClose={() => setShowMultiplayerModal(false)}
+          onCreateRoom={(mode, max) => handleCreateRoom(mode, max)}
+          onJoinRoom={(code) => handleJoinRoom(code)}
+          onlinePlayersCount={onlinePlayers.length}
+          onlinePlayers={onlinePlayers}
+          currentUserId={currentUser?.id}
+        />
+
         {/* INCOMING INVITATION POPUP TOAST */}
         {incomingInvite && (
           <InvitationToast
@@ -610,7 +627,7 @@ export const App: React.FC = () => {
                 if (mode === 'system') {
                   startSystemMatch();
                 } else if (mode === 'multiplayer' || mode === 'online_team' || mode === 'lan') {
-                  handleCreateRoom('online_team');
+                  setShowMultiplayerModal(true);
                 } else {
                   setSelectedMode('pass_and_play');
                 }
@@ -688,16 +705,77 @@ export const App: React.FC = () => {
         {gameState.currentPhase !== 'SETUP' && (
           <main className="gameplay-screen">
             {/* TOP PLAYER: OPPONENT ("Bot" in single player or opponents in multiplayer) */}
-            <section aria-label="Opponent Player Area">
+            <section
+              aria-label="Opponent Player Area"
+              style={{
+                display: 'flex',
+                flexDirection: opponentPlayers.length > 1 ? 'row' : 'column',
+                overflowX: opponentPlayers.length > 1 ? 'auto' : 'visible',
+                gap: 8,
+                paddingBottom: opponentPlayers.length > 1 ? 4 : 0,
+                WebkitOverflowScrolling: 'touch',
+              }}
+            >
               {opponentPlayers.map((opp) => (
-                <PlayerMat
+                <div
                   key={opp.id}
-                  player={opp}
-                  isActiveTurn={gameState.currentPlayerIndex === gameState.players.indexOf(opp)}
-                  isSelf={false}
-                />
+                  style={{
+                    minWidth: opponentPlayers.length > 1 ? '85%' : '100%',
+                    flex: opponentPlayers.length > 1 ? '0 0 auto' : '1 1 auto',
+                  }}
+                >
+                  <PlayerMat
+                    player={opp}
+                    isActiveTurn={gameState.currentPlayerIndex === gameState.players.indexOf(opp)}
+                    isSelf={false}
+                  />
+                </div>
               ))}
             </section>
+
+            {/* Active Turn Announcement Banner */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '5px 12px',
+                background: isMyTurnInNetwork ? 'rgba(37, 99, 235, 0.22)' : 'rgba(15, 23, 42, 0.65)',
+                border: isMyTurnInNetwork ? '1px solid rgba(56, 189, 248, 0.45)' : '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: 10,
+                margin: '4px 0',
+                fontSize: '0.74rem',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ color: isMyTurnInNetwork ? '#38bdf8' : '#94a3b8', fontWeight: 800 }}>
+                  {isMyTurnInNetwork ? '🎯 YOUR TURN' : `⏳ ${activePlayer?.displayName || 'Opponent'}'s Turn`}
+                </span>
+              </div>
+              <span
+                style={{
+                  color: '#cbd5e1',
+                  fontSize: '0.72rem',
+                  maxWidth: '62%',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  textAlign: 'right',
+                }}
+              >
+                {selectedMode === 'system' && gameState.currentPlayerIndex === 1
+                  ? '🤖 Bot is thinking...'
+                  : !isMyTurnInNetwork && activeRoom
+                  ? 'Waiting for move...'
+                  : isReplacingFromDiscardMode
+                  ? 'Tap hand card to swap with discard'
+                  : isReplacingMode
+                  ? 'Tap hand card to swap with drawn'
+                  : gameState.currentPhase === 'CARD_DRAWN'
+                  ? 'Choose action below'
+                  : 'Draw card or swap discard'}
+              </span>
+            </div>
 
             {/* CENTER ARENA: 40 CARDS, DRAW PILE, IN HAND */}
             <section className="center-field-arena" aria-label="Center Field Arena">

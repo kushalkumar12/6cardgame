@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import type { RoomPlayerInfo } from '../types/user';
+import { soundManager } from '../services/soundManager';
+import { Avatar } from './Avatar';
 
 interface LobbyRoomProps {
   roomCode: string;
@@ -45,6 +47,7 @@ export const LobbyRoom: React.FC<LobbyRoomProps> = ({
 
   const handleSendInvite = async (targetId: string) => {
     if (!targetId.trim()) return;
+    soundManager.playClick();
     setInvitingId(targetId);
     setInviteStatus({ text: `Inviting ${targetId}...`, isError: false });
 
@@ -67,61 +70,254 @@ export const LobbyRoom: React.FC<LobbyRoomProps> = ({
   };
 
   const copyRoomCode = () => {
+    soundManager.playClick();
     navigator.clipboard.writeText(roomCode);
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2000);
   };
 
   return (
-    <div className="setup-card" style={{ maxWidth: '680px', margin: '0 auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <span className="round-pill">
-          🌐 Multiplayer Game Lobby
+    <div
+      style={{
+        width: '100%',
+        maxWidth: '430px',
+        margin: '0 auto',
+        padding: '16px 14px',
+        boxSizing: 'border-box',
+      }}
+    >
+      {/* Top Bar with Badge and Leave button */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 14,
+        }}
+      >
+        <span
+          style={{
+            background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.25), rgba(37, 99, 235, 0.25))',
+            border: '1px solid #38bdf8',
+            color: '#38bdf8',
+            borderRadius: 20,
+            padding: '5px 12px',
+            fontSize: '0.82rem',
+            fontWeight: 700,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+          }}
+        >
+          <span>🌐</span> Multiplayer Lobby
         </span>
+
         <button
           type="button"
           className="secondary-ghost-btn"
-          onClick={onLeaveRoom}
-          style={{ padding: '6px 14px', fontSize: '0.82rem' }}
+          onClick={() => {
+            soundManager.playClick();
+            onLeaveRoom();
+          }}
+          style={{ padding: '6px 12px', fontSize: '0.8rem', color: '#fda4af', borderColor: 'rgba(225,29,72,0.4)' }}
         >
-          Leave Room
+          🚪 Leave
         </button>
       </div>
 
-      <div style={{ background: 'rgba(0,0,0,0.3)', padding: 16, borderRadius: 12, marginBottom: 20 }}>
-        <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Share Room Code:</span>
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, margin: '6px 0' }}>
-          <span style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--gold-light)', letterSpacing: '0.12em' }}>
+      {/* Hero Card: Room Code */}
+      <div
+        style={{
+          background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.9))',
+          border: '1.5px solid rgba(56, 189, 248, 0.35)',
+          borderRadius: 16,
+          padding: '14px 16px',
+          marginBottom: 16,
+          textAlign: 'center',
+          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
+        }}
+      >
+        <span style={{ fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          Share Room Code
+        </span>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: 12,
+            margin: '8px 0',
+          }}
+        >
+          <span
+            style={{
+              fontSize: '2rem',
+              fontWeight: 900,
+              color: '#38bdf8',
+              letterSpacing: '0.2em',
+              textShadow: '0 0 16px rgba(56, 189, 248, 0.4)',
+            }}
+          >
             {roomCode}
           </span>
-          <button type="button" className="secondary-ghost-btn" onClick={copyRoomCode}>
-            {copiedCode ? '✓ Copied' : '📋 Copy Code'}
+          <button
+            type="button"
+            className="secondary-ghost-btn"
+            onClick={copyRoomCode}
+            style={{ padding: '6px 12px', fontSize: '0.82rem', background: 'rgba(56, 189, 248, 0.15)', borderColor: '#38bdf8' }}
+          >
+            {copiedCode ? '✓ Copied' : '📋 Copy'}
           </button>
         </div>
-        <p style={{ margin: '6px 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-          Friends can enter this Room Code to join your game instantly.
+        <p style={{ margin: 0, fontSize: '0.76rem', color: '#64748b' }}>
+          Give this code to friends so they can join your lobby instantly!
         </p>
+      </div>
+
+      {/* Players in Current Room */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <h3 style={{ fontSize: '0.92rem', color: '#f8fafc', margin: 0, fontWeight: 700 }}>
+            Lobby Players ({players.length} / 6)
+          </h3>
+          <span style={{ fontSize: '0.74rem', color: allReady ? '#4ade80' : '#f59e0b', fontWeight: 600 }}>
+            {allReady ? '● All Ready' : '⏳ Waiting for Ready'}
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {players.map((p) => {
+            const isMe = p.userId === myUserId;
+            return (
+              <div
+                key={p.userId}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '10px 12px',
+                  background: isMe ? 'rgba(37, 99, 235, 0.14)' : 'rgba(15, 23, 42, 0.65)',
+                  borderRadius: 12,
+                  border: isMe ? '1.5px solid #38bdf8' : '1px solid rgba(255,255,255,0.08)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <Avatar avatar={p.avatar} name={p.displayName} size={38} />
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <strong style={{ fontSize: '0.88rem', color: '#ffffff' }}>{p.displayName}</strong>
+                      {p.isHost && <span title="Host">👑</span>}
+                      {isMe && <span style={{ fontSize: '0.72rem', color: '#38bdf8' }}>(You)</span>}
+                    </div>
+                    <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                      ID: {p.userId}
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {!isMe && onAddFriend && (
+                    <button
+                      type="button"
+                      className="secondary-ghost-btn"
+                      style={{ padding: '3px 8px', fontSize: '0.72rem' }}
+                      onClick={() => onAddFriend(p.userId)}
+                    >
+                      + Friend
+                    </button>
+                  )}
+                  <span
+                    style={{
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                      padding: '3px 8px',
+                      borderRadius: 12,
+                      background: p.ready ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)',
+                      color: p.ready ? '#4ade80' : '#fbbf24',
+                      border: p.ready ? '1px solid #10b981' : '1px solid #f59e0b',
+                    }}
+                  >
+                    {p.ready ? '✓ Ready' : '⏳ Waiting'}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Action Controls: Ready & Start Game */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
+        <button
+          type="button"
+          onClick={() => {
+            soundManager.playClick();
+            onToggleReady();
+          }}
+          style={{
+            width: '100%',
+            padding: '12px 16px',
+            borderRadius: 12,
+            fontWeight: 800,
+            fontSize: '0.94rem',
+            cursor: 'pointer',
+            border: me?.ready ? '1.5px solid #ef4444' : '1.5px solid #10b981',
+            background: me?.ready ? 'rgba(239, 68, 68, 0.18)' : 'linear-gradient(135deg, #10b981, #059669)',
+            color: '#ffffff',
+            boxShadow: me?.ready ? 'none' : '0 4px 14px rgba(16, 185, 129, 0.35)',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          {me?.ready ? '✕ Cancel Ready' : '✓ I am Ready!'}
+        </button>
+
+        {isHost && (
+          <button
+            type="button"
+            className="primary-blue-btn"
+            style={{
+              width: '100%',
+              padding: '13px 16px',
+              fontSize: '0.94rem',
+              opacity: allReady ? 1 : 0.6,
+              cursor: allReady ? 'pointer' : 'not-allowed',
+            }}
+            disabled={!allReady}
+            onClick={() => {
+              if (allReady) {
+                soundManager.playClick();
+                onStartGame();
+              }
+            }}
+          >
+            {players.length < 2
+              ? 'Waiting for Players (Min 2)...'
+              : !allReady
+              ? 'Waiting for Everyone to Ready Up...'
+              : '🚀 Start Match Now!'}
+          </button>
+        )}
       </div>
 
       {/* Manual Invite by ID or Username */}
       <div
         style={{
-          background: 'rgba(255,255,255,0.04)',
-          padding: 14,
-          borderRadius: 10,
-          marginBottom: 16,
-          textAlign: 'left',
+          background: 'rgba(15, 23, 42, 0.7)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          padding: 12,
+          borderRadius: 12,
+          marginBottom: 14,
         }}
       >
-        <label style={{ fontSize: '0.84rem', color: 'var(--gold-light)', display: 'block', marginBottom: 6 }}>
-          Invite Player by Player ID (e.g. <code>#P-1002</code>) or Username
+        <label style={{ fontSize: '0.78rem', color: '#94a3b8', display: 'block', marginBottom: 6 }}>
+          Invite Player by ID or Name:
         </label>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 6 }}>
           <input
             type="text"
             className="player-name-input"
-            style={{ flex: 1 }}
-            placeholder="Enter Player ID (e.g. #P-1002 or 1002) or Name"
+            style={{ flex: 1, padding: '8px 10px', fontSize: '0.84rem' }}
+            placeholder="e.g. guest-xxx or username"
             value={inviteInput}
             onChange={(e) => setInviteInput(e.target.value)}
             onKeyDown={(e) => {
@@ -130,12 +326,11 @@ export const LobbyRoom: React.FC<LobbyRoomProps> = ({
           />
           <button
             type="button"
-            className="primary-gold-btn"
-            style={{ width: 'auto', padding: '8px 18px', fontSize: '0.9rem' }}
-            disabled={!inviteInput.trim() || invitingId === inviteInput.trim()}
+            className="primary-blue-btn"
+            style={{ width: 'auto', padding: '8px 14px', fontSize: '0.82rem' }}
             onClick={() => handleSendInvite(inviteInput)}
           >
-            {invitingId === inviteInput.trim() ? 'Sending...' : 'Send Invite'}
+            Invite
           </button>
         </div>
 
@@ -143,8 +338,8 @@ export const LobbyRoom: React.FC<LobbyRoomProps> = ({
           <div
             style={{
               marginTop: 8,
-              fontSize: '0.82rem',
-              color: inviteStatus.isError ? '#fda4af' : '#a7f3d0',
+              fontSize: '0.78rem',
+              color: inviteStatus.isError ? '#f87171' : '#4ade80',
               fontWeight: 500,
             }}
           >
@@ -154,26 +349,24 @@ export const LobbyRoom: React.FC<LobbyRoomProps> = ({
         )}
       </div>
 
-      {/* Online Players Quick-Invite List */}
+      {/* Online Players Quick-Invite Strip */}
       {inviteableOnline.length > 0 && (
         <div
           style={{
-            background: 'rgba(16, 185, 129, 0.08)',
+            background: 'rgba(15, 23, 42, 0.7)',
             border: '1px solid rgba(16, 185, 129, 0.25)',
-            padding: 14,
-            borderRadius: 10,
-            marginBottom: 20,
-            textAlign: 'left',
+            padding: 12,
+            borderRadius: 12,
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#6ee7b7' }}>
-              🟢 Online Players Right Now ({inviteableOnline.length})
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#4ade80' }}>
+              🟢 Online Players ({inviteableOnline.length})
             </span>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>1-Click Invite</span>
+            <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>1-Tap Invite</span>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: '160px', overflowY: 'auto' }}>
             {inviteableOnline.map((op) => (
               <div
                 key={op.id}
@@ -181,16 +374,16 @@ export const LobbyRoom: React.FC<LobbyRoomProps> = ({
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  background: 'rgba(0, 0, 0, 0.35)',
-                  padding: '8px 12px',
-                  borderRadius: 6,
+                  background: 'rgba(0, 0, 0, 0.3)',
+                  padding: '6px 10px',
+                  borderRadius: 8,
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: '1.2rem' }}>{op.avatar}</span>
+                  <Avatar avatar={op.avatar} name={op.username} size={28} />
                   <div>
-                    <span style={{ fontWeight: 600, fontSize: '0.88rem', color: '#f3f4f6' }}>{op.username}</span>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: 6 }}>
+                    <span style={{ fontWeight: 600, fontSize: '0.82rem', color: '#f8fafc' }}>{op.username}</span>
+                    <span style={{ fontSize: '0.7rem', color: '#94a3b8', marginLeft: 4 }}>
                       ({op.id})
                     </span>
                   </div>
@@ -200,10 +393,10 @@ export const LobbyRoom: React.FC<LobbyRoomProps> = ({
                   type="button"
                   className="secondary-ghost-btn"
                   style={{
-                    padding: '4px 12px',
-                    fontSize: '0.78rem',
+                    padding: '3px 10px',
+                    fontSize: '0.74rem',
                     background: 'rgba(16, 185, 129, 0.2)',
-                    color: '#6ee7b7',
+                    color: '#4ade80',
                     borderColor: 'rgba(16, 185, 129, 0.4)',
                   }}
                   disabled={invitingId === op.id}
@@ -216,86 +409,6 @@ export const LobbyRoom: React.FC<LobbyRoomProps> = ({
           </div>
         </div>
       )}
-
-      {/* Players in Current Room */}
-      <h3 style={{ fontSize: '1rem', color: 'var(--gold-light)', textAlign: 'left', marginBottom: 12 }}>
-        Lobby Players ({players.length} / 6)
-      </h3>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
-        {players.map((p) => (
-          <div
-            key={p.userId}
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '10px 16px',
-              background: 'rgba(0,0,0,0.3)',
-              borderRadius: 8,
-              border: p.userId === myUserId ? '1px solid var(--gold-primary)' : '1px solid transparent',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: '1.4rem' }}>{p.avatar}</span>
-              <div style={{ textAlign: 'left' }}>
-                <strong>{p.displayName}</strong>{' '}
-                {p.isHost && (
-                  <span style={{ color: 'var(--gold-light)', fontSize: '0.75rem', fontWeight: 600 }}>
-                    (Host)
-                  </span>
-                )}
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>
-                  ID: <code>{p.userId}</code>
-                </span>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              {p.userId !== myUserId && onAddFriend && (
-                <button
-                  type="button"
-                  className="secondary-ghost-btn"
-                  style={{ padding: '3px 8px', fontSize: '0.74rem' }}
-                  onClick={() => onAddFriend(p.userId)}
-                  title="Add as Friend"
-                >
-                  + Friend
-                </button>
-              )}
-              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: p.ready ? '#a7f3d0' : '#fda4af' }}>
-                {p.ready ? '✓ Ready' : '⏳ Not Ready'}
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Action Controls */}
-      <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-        <button
-          type="button"
-          className={`action-btn ${me?.ready ? 'action-btn-neutral' : 'action-btn-declare'}`}
-          onClick={onToggleReady}
-        >
-          {me?.ready ? 'Cancel Ready' : 'I am Ready!'}
-        </button>
-
-        {isHost && (
-          <button
-            type="button"
-            className="primary-gold-btn"
-            style={{ width: 'auto', padding: '12px 28px' }}
-            disabled={!allReady}
-            onClick={onStartGame}
-          >
-            {players.length < 2
-              ? 'Waiting for Players (Min 2)...'
-              : !allReady
-              ? 'Waiting for All Players to Ready Up...'
-              : 'Start Match! 🚀'}
-          </button>
-        )}
-      </div>
     </div>
   );
 };

@@ -1,144 +1,136 @@
-# Six Cards — Frontend Application Documentation
+# Six Cards — Mobile Frontend Application (`frontend-mobile`)
 
-This document covers the architecture, component hierarchy, state management, styling guidelines, and deployment procedures for the **Six Cards Frontend** single-page application (SPA).
+This document provides comprehensive documentation for the **Six Cards Mobile Frontend**, engineered specifically for mobile device viewports (smartphones and handheld browsers) with a luxury dark sapphire casino aesthetic, zero-latency Web Audio sound engine, and full real-time multiplayer capabilities.
 
 ---
 
 ## 1. Technology Stack
 
 - **Core Framework**: [React 19](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)
-- **Build Tool & Dev Server**: [Vite 8](https://vitejs.dev/)
+- **Build Tool & Bundler**: [Vite 8](https://vitejs.dev/)
 - **Real-Time Client**: [Socket.IO Client v4.8](https://socket.io/)
-- **Styling**: Vanilla CSS (Custom design system featuring luxury emerald poker tables, gold foil highlights, dark glassmorphism, and responsive micro-animations).
-- **Deployment**: [Vercel](https://vercel.com/) (configured via `vercel.json` SPA rewrites).
+- **Audio Engine**: Custom synthesized Web Audio API sound engine (Velvet Lo-Fi jazz lounge BGM, haptic click SFX, felt card slides, elimination bells, and victory fanfares — zero external asset downloads).
+- **Styling**: Vanilla CSS (Tailored mobile design tokens, Gemini-inspired active turn gradient animated borders, glassmorphism, fluid flexbox/grid layout, and zero desktop horizontal scrolling).
+- **Target Viewport**: Mobile phones (optimal viewports 360px – 430px wide, 100dvh full bleed).
 
 ---
 
 ## 2. Directory Structure
 
 ```text
-frontend/
-├── public/                       # Static public assets
-│   ├── favicon.svg               # Browser icon
-│   └── logo.png                  # High-resolution game logo
-│
+frontend-mobile/
+├── public/                       # Static public assets (logo, favicons)
 ├── src/
-│   ├── assets/                   # Bundled graphics (logo, card emblems)
-│   ├── components/               # Reusable visual UI components
+│   ├── assets/                   # Bundled graphics
+│   ├── components/               # Mobile UI Components
 │   │   ├── ActionLog.tsx         # Live turn log and action announcements
-│   │   ├── AuthModal.tsx         # Guest login, display name, and Google OAuth setup
-│   │   ├── CardView.tsx          # Card rendering (face up, face down, suits, ranks)
-│   │   ├── DeclareVictoryModal.ts# Confirmation dialog for victory declaration
-│   │   ├── EliminationModal.tsx  # Multi-select card elimination modal
-│   │   ├── FriendRequestToast.tsx# Live toast for incoming friend requests
-│   │   ├── GameOverModal.tsx     # Final scoreboard, card revelations, winner reveal
-│   │   ├── Header.tsx            # Navbar, logo, chip balance, and profile trigger
-│   │   ├── InitialMemorizeModal.t# Phase 1: Two-card initial peek modal
-│   │   ├── InvitationToast.tsx   # Live toast for incoming room invitations
-│   │   ├── JackExchangeModal.tsx # Jack card blind swap interface
-│   │   ├── LobbyRoom.tsx         # Multiplayer lobby, room codes, readiness, quick add friend
-│   │   ├── ModeSelect.tsx        # Selection cards for Mode 1 (AI), Mode 2 (Multiplayer), Mode 3 (Pass & Play)
-│   │   ├── PassDeviceModal.tsx   # Device privacy screen for Pass & Play mode
+│   │   ├── AuthModal.tsx         # Mobile Welcome screen with Google & Guest login
+│   │   ├── Avatar.tsx            # Real vector initial & image profile avatar renderer
+│   │   ├── BottomBar.tsx         # Mobile bottom bar (Music toggle, SFX toggle, Exit button)
+│   │   ├── CardView.tsx          # Uniform ratio card component (face-up, face-down, ranks, suits)
+│   │   ├── DeclareVictoryModal.ts# Victory declaration confirmation modal
+│   │   ├── EliminationModal.tsx  # Multi-card matching elimination dialog
+│   │   ├── FriendRequestToast.tsx# Floating real-time friend request toast notification
+│   │   ├── GameOverModal.tsx     # Final match results, card reveal, and winner podium
+│   │   ├── Header.tsx            # Sticky mobile header (Logo, Rules 6-dot button, Avatar)
+│   │   ├── Icons.tsx             # Custom SVG game icons (cards, bots, multiplayer masks, etc.)
+│   │   ├── InitialMemorizeModal.t# Phase 1: Two-card initial memorization modal
+│   │   ├── InvitationToast.tsx   # Live room invitation toast notification
+│   │   ├── JackExchangeModal.tsx # Jack blind card swap selection interface
+│   │   ├── LobbyRoom.tsx         # Mobile multiplayer lobby (Room code card, player slots, readiness)
+│   │   ├── ModeSelect.tsx        # Mode 1: Play with Bot / Mode 2: Multiplayer Online
+│   │   ├── MultiplayerRoomModal.t# Dedicated mobile modal: Create Room, Join with Code, Online Players
+│   │   ├── PassDeviceModal.tsx   # Privacy transition screen for Pass & Play
 │   │   ├── PenaltyModal.tsx      # Wrong elimination penalty card display
-│   │   ├── PlayerMat.tsx         # Player 6-card grid layout with card indices
-│   │   ├── ProfileModal.tsx      # Career stats, scoreboard, friends list, referral codes
-│   │   ├── RevealModal.tsx       # 7 & 8 card peek modal
-│   │   └── RulesModal.tsx        # Interactive in-game rules modal
+│   │   ├── PlayerMat.tsx         # Player 6-card hand with dynamic Line (1x6) vs Grid (2x3) layout
+│   │   ├── ProfileModal.tsx      # Profile, Global Scoreboard, Friends, Refer & Earn, and About
+│   │   ├── RevealModal.tsx       # 7 & 8 card peek reveal dialog
+│   │   └── RulesModal.tsx        # Mobile rules modal with fixed header & scrollable content
 │   │
-│   ├── engine/                   # Client-side card state machine (for Solo & Pass & Play)
-│   │   ├── aiBot.ts              # Intelligent single-player AI decision agent
-│   │   ├── deck.ts               # 52-card deck generator and Fisher-Yates shuffler
-│   │   ├── gameEngine.ts         # Authoritative client rules engine
-│   │   └── scoring.ts            # Point calculation helpers
+│   ├── engine/                   # Client-side card state machine (Solo AI & Pass & Play)
+│   │   ├── aiBot.ts              # Single-player bot decision engine
+│   │   ├── deck.ts               # Standard 52-card deck generator and shuffler
+│   │   ├── gameEngine.ts         # Authoritative local rules and turn transition engine
+│   │   └── scoring.ts            # Scoring and point calculation helpers
 │   │
 │   ├── services/
-│   │   └── api.ts                # REST API calls and Socket.IO connection manager
+│   │   ├── api.ts                # REST API client and Socket.IO connection manager
+│   │   ├── logger.ts             # Debugging logger
+│   │   └── soundManager.ts       # Zero-latency Web Audio API synthesizer engine
 │   │
-│   ├── types/                    # Shared TypeScript interfaces (Card, GameState, User)
-│   ├── App.tsx                   # Main root application orchestrator
-│   ├── index.css                 # Comprehensive design system, utilities, and animations
-│   └── main.tsx                  # React DOM root render
-│
-├── .env.example                  # Environment variable reference
-├── index.html                    # Single Page Application HTML shell
-├── package.json                  # Frontend-only dependencies
-├── tsconfig.json                 # Project TypeScript configuration
-├── vercel.json                   # Vercel deployment and routing rules
-└── vite.config.ts                # Vite plugin and server configuration
+│   ├── types/                    # Shared TypeScript interfaces (Game, User, Cards)
+│   ├── App.tsx                   # Main root application orchestrator for mobile
+│   ├── index.css                 # Comprehensive mobile design system and animations
+│   └── main.tsx                  # React DOM entry point
 ```
 
 ---
 
-## 3. Key Components & Responsibilities
+## 3. Core Features & Mobile UX Innovations
 
-### A. Core Screens
-1. **[App.tsx](file:///d:/JavaProjects/6CardGame/frontend/src/App.tsx)**:
-   - Manages active user authentication session (stored in `sessionStorage` and `localStorage`).
-   - Maintains WebSocket listeners (`received_invitation`, `received_friend_request`, `room_updated`, `room_state_update`).
-   - Automatically switches views between Mode Selection (`SETUP`), Room Lobby (`activeRoom`), and Active Game Arena (`game-table`).
-2. **[ModeSelect.tsx](file:///d:/JavaProjects/6CardGame/frontend/src/components/ModeSelect.tsx)**:
-   - **Mode 1**: Play with System (AI Bot).
-   - **Mode 2**: Multiplayer (Private Room Codes, Friends, & Matchmaking).
-   - **Mode 3**: Classic Pass-and-Play (Single device, 2 to 6 players).
-3. **[LobbyRoom.tsx](file:///d:/JavaProjects/6CardGame/frontend/src/components/LobbyRoom.tsx)**:
-   - Displays 4-letter Room Code (`ABCD`) with 1-click copy.
-   - Shows active room participants, host badge, ready toggles, and **"+ Friend"** quick-add buttons.
-   - Allows manual Player ID/username invitations plus 1-click invites for online players.
+### A. Multiplayer & Rooms
+1. **Multiplayer Selection Modal (`MultiplayerRoomModal.tsx`)**:
+   - **Create Room**: Configure Max Players (2, 3, 4, or 6 players) and Game Mode (Team Battle vs Casual), then opens the lobby instantly.
+   - **Join Room**: Enter a 4-to-6 character Room Code (auto-capitalized) with 1-tap clipboard paste.
+   - **Live Online Players**: Real-time counter and listing of online players connected to the server.
+2. **Multiplayer Lobby Screen (`LobbyRoom.tsx`)**:
+   - **Room Code Hero Card**: High-contrast, glowing Room Code with 1-tap "Copy" button.
+   - **Player Slots**: Real avatar rendering, Host crown 👑 badge, readiness indicator (`✓ Ready` vs `⏳ Waiting`), and `+ Friend` button.
+   - **Host & Player Controls**: Prominent "I am Ready!" toggle and "Start Match Now!" button for host (enabled when 2+ players are ready).
+   - **Invitations**: Search by Player ID/name and 1-tap quick invite from the online player list.
 
-### B. Modals & Notifications
-1. **[ProfileModal.tsx](file:///d:/JavaProjects/6CardGame/frontend/src/components/ProfileModal.tsx)**:
-   - **Tab 1: Profile & Stats** — Games played, victories, win rate %, lowest score, zero-card wins, and chips balance.
-   - **Tab 2: Scoreboard** — Global leaderboard with rank, avatar, and chips.
-   - **Tab 3: Friends** — Real-time friends list, online indicator, search by Player ID/username, and manual refresh button.
-   - **Tab 4: Refer & Earn** — Shareable referral code (`REF-XXXX`) with +200 / +100 bonus chips mechanism.
-2. **[FriendRequestToast.tsx](file:///d:/JavaProjects/6CardGame/frontend/src/components/FriendRequestToast.tsx)**:
-   - Floating notification when another online player sends a friend request.
-   - Clicking **"Accept Friend"** connects both players bidirectionally in the PostgreSQL database.
-3. **[InvitationToast.tsx](file:///d:/JavaProjects/6CardGame/frontend/src/components/InvitationToast.tsx)**:
-   - Floating notification when another player invites you to a multiplayer room.
-   - Clicking **"Accept & Join"** joins the room and automatically adds each other as friends.
+### B. Profile, Avatar Customization & Social Features
+1. **Avatar Customization (`ProfileModal.tsx`)**:
+   - Tapping the avatar circle opens the **Choose Profile Avatar** drawer:
+     - **Upload Photo**: Upload custom photo from device gallery/camera.
+     - **5 Initial-Based Themes**: 5 vector gradient avatars featuring the player's initial letter (*Amber Gold*, *Sapphire Blue*, *Emerald Jade*, *Crimson Ruby*, and *Amethyst Purple*).
+2. **Dynamic Menu Bar**:
+   - Only the **active tab** expands to show its icon and text label.
+   - Unselected tabs collapse into sleek compact icons, perfectly fitting mobile viewports without horizontal scrollbar overflow.
+3. **Global Scoreboard & Ranking**:
+   - Global leaderboard with Gold 🥇, Silver 🥈, and Bronze 🥉 medals for top 3 players.
+   - Shows Wins, Win Rate %, Games Played, and Chips Balance with user row highlighted.
+4. **Friends & Player Search**:
+   - Real-time friends list with emerald pulse `● Online` / `○ Offline` status badges.
+   - Instant search by Player ID or Username with "+ Add Friend" capability.
+   - "✉️ Invite" button to bring online friends directly into your game lobby.
+5. **Refer & Earn**:
+   - Unique referral code with 1-tap copy.
+   - Earn +200 bonus chips per referral, and newly invited friends receive +100 bonus chips upon redemption.
+
+### C. In-Game Mobile Arena
+1. **Gemini Gradient Border**:
+   - Active player turn is highlighted by an animated, shifting cosmic gradient border.
+2. **Dynamic Hand Layout (Line vs Grid)**:
+   - "Line" mode displays all 6 cards side by side (1×6).
+   - "Grid" mode wraps cards into 2 rows of 3 (2×3).
+   - Contraction and expansion animate smoothly.
+3. **Center Field Alignment**:
+   - Discard pile card count and draw pile "In Hand" label aligned symmetrically.
+   - Uniform medium card ratio across discard, draw, and dealt piles.
+4. **Multiplayer Opponent Strip**:
+   - Horizontal scrollable strip for 2 to 5 opponents in multiplayer games, keeping individual hands accessible without vertical layout distortion.
+5. **Turn Announcement Banner**:
+   - Real-time turn announcement showing active player and context-sensitive instructions (e.g. Draw, Swap with Discard, Swap with Hand, Eliminate, Declare).
 
 ---
 
-## 4. Environment Variables
+## 4. Running and Testing Locally
 
-The frontend connects to the backend through profile-aware environment variables defined in `.env.example`:
-
-| Variable | Description | Example (Local) | Example (Production) |
-| :--- | :--- | :--- | :--- |
-| `VITE_API_URL` | Base HTTP endpoint for REST requests | `http://localhost:3001` | `https://six-cards-backend.onrender.com` |
-| `VITE_SOCKET_URL`| WebSocket endpoint for Socket.IO | `http://localhost:3001` | `https://six-cards-backend.onrender.com` |
-
----
-
-## 5. Local Development & Production Build
-
-### Running the Frontend Locally:
 ```bash
-cd frontend
-npm install
-npm run dev
-```
-*(Runs Vite dev server on `http://localhost:5173` with instant HMR)*
+# Navigate to mobile frontend
+cd frontend-mobile
 
-### Validating the Production Build:
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+# Running on http://localhost:5180
+```
+
+To run a production verification build:
 ```bash
 npm run build
 ```
-*(Runs TypeScript validation `tsc -b` and bundles assets into the `dist/` directory)*
-
----
-
-## 6. Vercel Deployment Step-by-Step
-
-1. Log in to [Vercel](https://vercel.com/) and click **"Add New..."** → **"Project"**.
-2. Select the repository: `kushalkumar12/6cardgame`.
-3. In **Project Configuration**:
-   - **Root Directory**: `frontend`
-   - **Framework Preset**: `Vite` (detected automatically)
-   - **Build Command**: `npm run build`
-   - **Output Directory**: `dist`
-4. Under **Environment Variables**, add:
-   - `VITE_API_URL`: Your backend URL (e.g. `https://six-cards-backend.onrender.com`)
-   - `VITE_SOCKET_URL`: Your backend URL (e.g. `https://six-cards-backend.onrender.com`)
-5. Click **Deploy**. Vercel will build and publish your frontend to a global edge domain.
+Build verifies backend reachability, compiles TypeScript with zero errors, and bundles assets with Vite.

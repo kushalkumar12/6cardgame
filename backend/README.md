@@ -169,6 +169,16 @@ npm run db:init
    APP_PROFILE=prod
    PORT=3001
    DATABASE_URL=postgresql://postgres:[PASSWORD]@...pooler.supabase.com:6543/postgres?sslmode=require
-   ALLOWED_ORIGINS=https://your-frontend.vercel.app
+   ALLOWED_ORIGINS=https://your-frontend.vercel.app,https://your-mobile-frontend.vercel.app
    ```
 5. Click **Deploy Web Service**.
+
+---
+
+## 9. Client Compatibility & Supported Frontends
+
+The backend is fully decoupled and seamlessly supports:
+1. **Desktop Web App (`frontend/`)**: Optimized for widescreen displays, emerald poker table layout, and keyboard/mouse interaction.
+2. **Mobile Web App (`frontend-mobile/`)**: Optimized for smartphones, handheld touch gestures, synthesized Web Audio, and dedicated mobile multiplayer room creation & join flows.
+
+Both clients connect simultaneously to the same WebSocket server, allowing seamless cross-platform multiplayer matches between desktop and mobile players.

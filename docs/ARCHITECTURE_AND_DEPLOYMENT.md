@@ -36,7 +36,8 @@ This guide details the complete cloud architecture, networking flow, security co
 
 | Layer | Host Platform | Purpose | Scaling Model |
 | :--- | :--- | :--- | :--- |
-| **Frontend UI** | **Vercel** | Delivers HTML, CSS, React bundles, images, icons | Globally distributed Edge CDN, automatic cache invalidation |
+| **Desktop UI (`frontend/`)** | **Vercel** | Widescreen poker table UI for desktop browsers | Globally distributed Edge CDN, automatic cache invalidation |
+| **Mobile UI (`frontend-mobile/`)** | **Vercel** | Responsive 100dvh mobile web application with Web Audio engine and mobile rooms | Globally distributed Edge CDN, instant touch responsiveness |
 | **Backend Service** | **Render** | Maintains active WebSocket TCP connections, validates card moves, manages 4-letter room codes, delivers real-time notifications | Persistent Node.js container with dedicated CPU & RAM |
 | **Database** | **Supabase** | Permanent relational storage for users, career stats, mutual friends, chips, and match logs | Managed PostgreSQL with transaction pooling (`port 6543`) |
 

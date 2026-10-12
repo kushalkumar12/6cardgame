@@ -74,5 +74,42 @@ describe('Server API Endpoints Integration', () => {
     expect(bobState.pendingDrawnCard.pointValue).toBe(0);
     expect(bobState.pendingDrawnCard.id).toBe('hidden-drawn-card');
   });
+
+  it('enforces one active session per IP: new session terminates and logs out previous session', async () => {
+    const isServerReachable = await fetch(`${SERVER_URL}/api/health`).then(() => true).catch(() => false);
+    if (!isServerReachable) return;
+
+    const { io } = await import('socket.io-client');
+    // Connect first socket from localhost (IP: 127.0.0.1)
+    const socketA = io(SERVER_URL, { forceNew: true, reconnection: false });
+    await new Promise<void>((resolve) => socketA.on('connect', resolve));
+
+    let terminatedReceived = false;
+    socketA.on('session_terminated', (data: any) => {
+      terminatedReceived = true;
+      expect(data.reason).toBe('DUPLICATE_IP_SESSION');
+    });
+
+    await new Promise<void>((resolve) => {
+      socketA.emit('register_user', { userId: 'P-TEST-A', username: 'UserA' }, resolve);
+    });
+
+    // Connect second socket from the same IP (without test flag)
+    const socketB = io(SERVER_URL, { forceNew: true, reconnection: false });
+    await new Promise<void>((resolve) => socketB.on('connect', resolve));
+
+    await new Promise<void>((resolve) => {
+      socketB.emit('register_user', { userId: 'P-TEST-B', username: 'UserB' }, resolve);
+    });
+
+    // Wait a brief tick for event delivery
+    await new Promise((r) => setTimeout(r, 100));
+
+    expect(terminatedReceived).toBe(true);
+
+    socketA.disconnect();
+    socketB.disconnect();
+  });
 });
+
 

@@ -71,6 +71,10 @@ export const App: React.FC = () => {
     fromAvatar: string;
   } | null>(null);
 
+  // Session termination & refresh warning states
+  const [sessionTerminatedMessage, setSessionTerminatedMessage] = useState<string | null>(null);
+  const [refreshWarning, setRefreshWarning] = useState<string | null>(null);
+
   // Game Mode Selection
   const [selectedMode, setSelectedMode] = useState<GamePlayMode | null>(null);
   const [joinRoomCodeInput, setJoinRoomCodeInput] = useState('');
@@ -174,6 +178,13 @@ export const App: React.FC = () => {
       setGameState(state);
     });
 
+    socket.on('session_terminated', ({ message }: any) => {
+      handleLogout(message || 'Another session was opened from your network/IP. You have been logged out.');
+      if (socket.connected) {
+        socket.disconnect();
+      }
+    });
+
     if (!socket.connected) {
       socket.connect();
     } else {
@@ -188,6 +199,7 @@ export const App: React.FC = () => {
       socket.off('room_updated');
       socket.off('game_started');
       socket.off('room_state_update');
+      socket.off('session_terminated');
     };
   }, []);
 
@@ -452,8 +464,53 @@ export const App: React.FC = () => {
     } catch {}
   };
 
+  // Active match detection
+  const isGameActive = (Boolean(selectedMode) || Boolean(activeRoom)) && !gameState.gameOver;
+
+  // Track active match in sessionStorage & warn on page refresh
+  useEffect(() => {
+    if (isGameActive) {
+      try {
+        sessionStorage.setItem('six_cards_game_in_progress', 'true');
+      } catch {}
+    } else {
+      try {
+        sessionStorage.removeItem('six_cards_game_in_progress');
+      } catch {}
+    }
+  }, [isGameActive]);
+
+  // Intercept refresh / reload attempts while actively in a match
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isGameActive) {
+        e.preventDefault();
+        e.returnValue = 'You have a match in progress! Refreshing will disrupt or forfeit your game.';
+        return e.returnValue;
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [isGameActive]);
+
+  // Check on mount if user previously refreshed during an active match
+  useEffect(() => {
+    try {
+      const wasInGame = sessionStorage.getItem('six_cards_game_in_progress');
+      if (wasInGame === 'true') {
+        sessionStorage.removeItem('six_cards_game_in_progress');
+        setRefreshWarning('⚠️ Warning: You refreshed while a game was in progress! Your previous match was interrupted.');
+        const timer = setTimeout(() => setRefreshWarning(null), 8000);
+        return () => clearTimeout(timer);
+      }
+    } catch {}
+  }, []);
+
   // Logout action
-  const handleLogout = () => {
+  const handleLogout = (terminatedReason?: string) => {
     const freshState = engine.reset();
     setGameState(freshState);
     setSelectedMode(null);
@@ -470,8 +527,12 @@ export const App: React.FC = () => {
       sessionStorage.removeItem(USER_SESSION_KEY);
       localStorage.removeItem(USER_STORAGE_KEY);
       localStorage.removeItem(LOCAL_STORAGE_KEY);
+      sessionStorage.removeItem('six_cards_game_in_progress');
     } catch {}
     setCurrentUser(null);
+    if (terminatedReason) {
+      setSessionTerminatedMessage(terminatedReason);
+    }
   };
 
   const activePlayer = gameState.players[gameState.currentPlayerIndex];
@@ -1321,6 +1382,49 @@ export const App: React.FC = () => {
 
       {/* RULES MODAL */}
       {showRules && <RulesModal onClose={() => setShowRules(false)} />}
+
+      {/* REFRESH IN-GAME WARNING TOAST */}
+      {refreshWarning && (
+        <div className="refresh-warning-toast" id="refresh-warning-toast">
+          <div className="refresh-warning-content">
+            <span className="refresh-warning-icon">⚠️</span>
+            <span className="refresh-warning-text">{refreshWarning}</span>
+          </div>
+          <button
+            type="button"
+            className="refresh-warning-close"
+            onClick={() => setRefreshWarning(null)}
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* SESSION TERMINATED DUE TO ANOTHER CONNECTION FROM SAME IP */}
+      {sessionTerminatedMessage && (
+        <div className="modal-overlay" style={{ zIndex: 9999 }}>
+          <div className="modal-content session-terminated-modal" style={{ textAlign: 'center', maxWidth: '400px' }}>
+            <div style={{ fontSize: '2.8rem', marginBottom: '8px' }}>⚠️</div>
+            <h3 style={{ color: '#f87171', marginBottom: '12px', fontSize: '1.35rem' }}>Session Logged Out</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: '1.5', marginBottom: '22px' }}>
+              {sessionTerminatedMessage}
+            </p>
+            <button
+              type="button"
+              className="action-btn action-btn-declare"
+              style={{ width: '100%', padding: '12px 18px', fontSize: '1rem' }}
+              onClick={() => {
+                setSessionTerminatedMessage(null);
+                if (!socket.connected) socket.connect();
+              }}
+              id="session-terminated-ok-btn"
+            >
+              OK, Got It
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

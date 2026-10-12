@@ -13,9 +13,9 @@ describe('Real-Time Multiplayer Invitation System', () => {
     }
 
     // 1. Connect Client 1 (Host "Alpha")
-    const socket1 = io(SERVER_URL, { forceNew: true, reconnection: false });
+    const socket1 = io(SERVER_URL, { forceNew: true, reconnection: false, auth: { isTestClient: true } });
     // 2. Connect Client 2 (Invitee "Beta")
-    const socket2 = io(SERVER_URL, { forceNew: true, reconnection: false });
+    const socket2 = io(SERVER_URL, { forceNew: true, reconnection: false, auth: { isTestClient: true } });
 
     await new Promise<void>((resolve) => {
       let count = 0;

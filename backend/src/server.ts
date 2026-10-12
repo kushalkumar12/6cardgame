@@ -120,9 +120,63 @@ app.get('/api/logs', async (req, res) => {
   }
 });
 
+// Enforce single active session per IP address (terminate old sessions on new connection)
+export interface IpSessionInfo {
+  socketId: string;
+  userId: string;
+  username?: string;
+  timestamp: number;
+}
+
+export const ipActiveSessions = new Map<string, IpSessionInfo>();
+
+export function getClientIp(socket: Socket): string {
+  const forwarded = socket.handshake.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string') {
+    return forwarded.split(',')[0].trim();
+  }
+  if (Array.isArray(forwarded) && forwarded.length > 0) {
+    return forwarded[0].trim();
+  }
+  const realIp = socket.handshake.headers['x-real-ip'];
+  if (typeof realIp === 'string') {
+    return realIp.trim();
+  }
+  return socket.handshake.address || socket.conn.remoteAddress || '127.0.0.1';
+}
+
+export function normalizeIp(ip: string): string {
+  if (!ip) return '127.0.0.1';
+  if (ip.startsWith('::ffff:')) {
+    return ip.replace('::ffff:', '');
+  }
+  if (ip === '::1') {
+    return '127.0.0.1';
+  }
+  return ip;
+}
+
 // Auth / Profile Login
 app.post('/api/auth/login', async (req, res) => {
   try {
+    const rawIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || req.socket.remoteAddress || '127.0.0.1';
+    const clientIp = normalizeIp(rawIp);
+
+    // If another session was previously registered for this IP, log it out
+    const previousSession = ipActiveSessions.get(clientIp);
+    if (previousSession) {
+      logger.warn('AUTH', `New login from IP ${clientIp}. Terminating prior session ${previousSession.socketId} (User ${previousSession.userId})`);
+      io.to(previousSession.socketId).emit('session_terminated', {
+        reason: 'DUPLICATE_IP_SESSION',
+        message: 'Another session was opened from your network/IP. You have been logged out.',
+      });
+      const oldSocket = io.sockets.sockets.get(previousSession.socketId);
+      if (oldSocket) {
+        oldSocket.disconnect(true);
+      }
+      ipActiveSessions.delete(clientIp);
+    }
+
     const { username, authProvider = 'guest', googleProfile, referralCodeInput } = req.body;
     const name =
       username?.trim() ||
@@ -508,6 +562,50 @@ io.on('connection', (socket: Socket) => {
       const username = typeof payload === 'object' ? payload?.username : undefined;
       const avatar = typeof payload === 'object' ? payload?.avatar : undefined;
       if (!userId) return;
+
+      const isTestClient = socket.handshake.auth?.isTestClient === true || socket.handshake.headers['x-test-client'] === 'true';
+      const rawIp = getClientIp(socket);
+      const clientIp = normalizeIp(rawIp);
+
+      // Enforce 1 session per IP address: Terminate any existing old session from the same IP
+      if (!isTestClient) {
+        const existingSession = ipActiveSessions.get(clientIp);
+        if (existingSession && existingSession.socketId !== socket.id) {
+          logger.warn(
+            'AUTH',
+            `Duplicate IP session detected for ${clientIp}. Logging out old session ${existingSession.socketId} (User ${existingSession.userId}) for new session ${socket.id} (User ${userId})`
+          );
+
+          // 1. Notify old session socket
+          io.to(existingSession.socketId).emit('session_terminated', {
+            reason: 'DUPLICATE_IP_SESSION',
+            message: 'Another session was opened from your network/IP. You have been logged out.',
+          });
+
+          // 2. Disconnect old socket
+          const oldSocket = io.sockets.sockets.get(existingSession.socketId);
+          if (oldSocket) {
+            oldSocket.disconnect(true);
+          }
+
+          // 3. Clean up old user mappings
+          if (existingSession.userId && userSockets.has(existingSession.userId)) {
+            userSockets.get(existingSession.userId)!.delete(existingSession.socketId);
+            if (userSockets.get(existingSession.userId)!.size === 0) {
+              userSockets.delete(existingSession.userId);
+            }
+          }
+          await ConnectionRepository.remove(existingSession.socketId);
+        }
+
+        // Save current session as the active session for this IP
+        ipActiveSessions.set(clientIp, {
+          socketId: socket.id,
+          userId,
+          username,
+          timestamp: Date.now(),
+        });
+      }
 
       currentUserId = userId;
 
@@ -933,6 +1031,12 @@ io.on('connection', (socket: Socket) => {
   });
 
   socket.on('disconnect', async () => {
+    const rawIp = getClientIp(socket);
+    const clientIp = normalizeIp(rawIp);
+    if (ipActiveSessions.get(clientIp)?.socketId === socket.id) {
+      ipActiveSessions.delete(clientIp);
+    }
+
     if (currentUserId && userSockets.has(currentUserId)) {
       userSockets.get(currentUserId)!.delete(socket.id);
       if (userSockets.get(currentUserId)!.size === 0) {

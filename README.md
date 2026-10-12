@@ -10,12 +10,14 @@ For complete and detailed technical references, consult the dedicated guides bel
 
 | Documentation | Location | Contents & Purpose |
 | :--- | :--- | :--- |
+| **Master System Specification & Architecture** | [docs/SYSTEM_SPECIFICATION_AND_ARCHITECTURE.md](docs/SYSTEM_SPECIFICATION_AND_ARCHITECTURE.md) | **Authoritative Engineering Reference**: Product requirements, technical requirements, full Mermaid app flows, design brief, database & runtime schemas, and 5-phase implementation plan. |
 | **Mobile Screens & Test Report** | [docs/MOBILE_APP_SCREENS_AND_TEST_REPORT.md](docs/MOBILE_APP_SCREENS_AND_TEST_REPORT.md) | Comprehensive audit report documenting all 21 mobile screens, modal popups, UI/UX fixes, and embedded screenshot artifacts. |
 | **Mobile Frontend Documentation** | [frontend-mobile/README.md](frontend-mobile/README.md) | Mobile-specific React 19 architecture, synthesized Web Audio sound engine, Gemini gradient active borders, mobile multiplayer rooms, avatar customization, and 100dvh viewport layout. |
 | **Desktop Frontend Documentation** | [frontend/README.md](frontend/README.md) | Desktop React 19 architecture, component hierarchy, visual design system, state machine, and Vercel edge deployment. |
 | **Backend Documentation** | [backend/README.md](backend/README.md) | Node.js + Express + Socket.IO server, profiles (`dev`/`test`/`prod`), PostgreSQL schema, REST APIs, and WebSocket events supporting both Desktop and Mobile frontends. |
 | **Game Rules & Scoring Engine** | [docs/GAME_RULES_AND_SCORING.md](docs/GAME_RULES_AND_SCORING.md) | Card point values, 7/8/Jack special powers, matching elimination rules, penalties, and victory evaluation. |
 | **Cloud Architecture & Runbook** | [docs/ARCHITECTURE_AND_DEPLOYMENT.md](docs/ARCHITECTURE_AND_DEPLOYMENT.md) | Step-by-step production setup linking Vercel (Frontends), Render (WebSockets), and Supabase (PostgreSQL). |
+
 
 ---
 

@@ -321,13 +321,15 @@ export const App: React.FC = () => {
     }
   }, [selectedMode, gameState, engine, syncEngineState]);
 
-  // Mode 1: Start Game with System (AI Bot)
+  // Mode 1: Start Game with System (AI Bot - Bot Plays First)
   const startSystemMatch = () => {
     setSelectedMode('system');
     aiBotRef.current = new AIBot('player-2');
-    const humanName = currentUser?.username || 'Player 1';
+    const humanName = currentUser?.username || 'You';
     engine.initializeGame({
-      playerNames: [humanName, 'System AI (Bot)'],
+      playerNames: [humanName, 'Bot'],
+      firstPlayerIndex: 1, // Bot plays first!
+      mode: 'system',
     });
     syncEngineState();
   };
@@ -438,15 +440,36 @@ export const App: React.FC = () => {
   const handleLeaveRoom = () => {
     setActiveRoom(null);
     setSelectedMode(null);
-    setGameState(engine.getState());
+    setMyGamePlayerId(null);
+    aiBotRef.current = null;
+    isAiThinkingRef.current = false;
+    const freshState = engine.reset();
+    setGameState(freshState);
+    try {
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
+    } catch {}
   };
 
   // Logout action
   const handleLogout = () => {
-    setCurrentUser(null);
-    setShowProfile(false);
+    const freshState = engine.reset();
+    setGameState(freshState);
     setSelectedMode(null);
     setActiveRoom(null);
+    setMyGamePlayerId(null);
+    aiBotRef.current = null;
+    isAiThinkingRef.current = false;
+    setShowProfile(false);
+    setShowRules(false);
+    setShowDeclareVictoryConfirm(false);
+    setIsReplacingMode(false);
+    setIsReplacingFromDiscardMode(false);
+    try {
+      sessionStorage.removeItem(USER_SESSION_KEY);
+      localStorage.removeItem(USER_STORAGE_KEY);
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
+    } catch {}
+    setCurrentUser(null);
   };
 
   const activePlayer = gameState.players[gameState.currentPlayerIndex];
@@ -454,12 +477,53 @@ export const App: React.FC = () => {
     ? gameState.discardPile[gameState.discardPile.length - 1]
     : null;
 
-  // In Networked Mode, determine if it is the current client's turn
+  // Local human player identification (ensures Bot is top, Human is bottom)
+  const localPlayer = activeRoom && myGamePlayerId
+    ? gameState.players.find((p) => p.id === myGamePlayerId) || activePlayer
+    : selectedMode === 'system'
+    ? gameState.players[0]
+    : activePlayer;
+
+  const opponentPlayers = gameState.players.filter((p) => p.id !== localPlayer?.id);
+
+  // In Networked Mode or Bot Mode, determine if it is the current client's turn
   const isMyTurnInNetwork = activeRoom
     ? activePlayer?.id === myGamePlayerId
-    : true;
+    : (selectedMode === 'system' ? gameState.currentPlayerIndex === 0 : true);
 
-  // Issue 1: Only the active player who drew the card can see it face-up!
+  // Jack highlight indices for visual indication (5-6s timer)
+  const botHighlightedIndices = gameState.jackHighlight
+    ? [
+        gameState.jackHighlight.opponentPlayerId === 'player-2'
+          ? gameState.jackHighlight.opponentCardIndex
+          : gameState.jackHighlight.ownPlayerId === 'player-2'
+          ? gameState.jackHighlight.ownCardIndex
+          : -1,
+      ].filter((i) => i >= 0)
+    : [];
+
+  const humanHighlightedIndices = gameState.jackHighlight
+    ? [
+        gameState.jackHighlight.opponentPlayerId === 'player-1'
+          ? gameState.jackHighlight.opponentCardIndex
+          : gameState.jackHighlight.ownPlayerId === 'player-1'
+          ? gameState.jackHighlight.ownCardIndex
+          : -1,
+      ].filter((i) => i >= 0)
+    : [];
+
+  // Jack highlight cleanup after 5.5s
+  useEffect(() => {
+    if (!gameState.jackHighlight) return;
+    const remaining = Math.max(0, gameState.jackHighlight.activeUntil - Date.now());
+    const timer = setTimeout(() => {
+      engine.clearJackHighlight();
+      syncEngineState();
+    }, remaining || 5500);
+    return () => clearTimeout(timer);
+  }, [gameState.jackHighlight, engine, syncEngineState]);
+
+  // Only the active player who drew the card can see it face-up!
   const isDrawnByCurrentClient = activeRoom
     ? isMyTurnInNetwork
     : (selectedMode === 'system' ? activePlayer?.id !== 'player-2' : true);
@@ -482,7 +546,14 @@ export const App: React.FC = () => {
             logger.info('GAME', 'Player left current game and returned to mode select');
             setSelectedMode(null);
             setActiveRoom(null);
-            setGameState({ ...engine.getState(), currentPhase: 'SETUP' });
+            setMyGamePlayerId(null);
+            aiBotRef.current = null;
+            isAiThinkingRef.current = false;
+            const fresh = engine.reset();
+            setGameState(fresh);
+            try {
+              localStorage.removeItem(LOCAL_STORAGE_KEY);
+            } catch {}
           }
         }}
         isGameActive={gameState.currentPhase !== 'SETUP'}
@@ -669,18 +740,17 @@ export const App: React.FC = () => {
       {/* MAIN GAMEPLAY TABLE (ALL MODES) */}
       {gameState.currentPhase !== 'SETUP' && (
         <main className="game-table">
-          {/* Opponents Row */}
+          {/* Opponents Row (Always Bot at top in Bot mode) */}
           <section className="opponents-row" aria-label="Opponent player hands">
-            {gameState.players
-              .filter((_, idx) => idx !== gameState.currentPlayerIndex)
-              .map((opp) => (
-                <PlayerMat
-                  key={opp.id}
-                  player={opp}
-                  isActiveTurn={false}
-                  isSelf={false}
-                />
-              ))}
+            {opponentPlayers.map((opp) => (
+              <PlayerMat
+                key={opp.id}
+                player={opp}
+                isActiveTurn={gameState.currentPlayerIndex === gameState.players.indexOf(opp)}
+                isSelf={false}
+                highlightedIndices={botHighlightedIndices}
+              />
+            ))}
           </section>
 
           {/* Center Arena */}
@@ -820,11 +890,10 @@ export const App: React.FC = () => {
                   🎴 Draw Card
                 </button>
 
-                {topDiscard && (
+                {topDiscard && selectedMode !== 'system' && (
                   <button
                     type="button"
                     className={`action-btn ${isReplacingFromDiscardMode ? 'action-btn-neutral' : 'action-btn-draw'}`}
-                    disabled={selectedMode === 'system' && gameState.currentPlayerIndex === 1}
                     onClick={() => {
                       setIsReplacingFromDiscardMode(!isReplacingFromDiscardMode);
                     }}
@@ -834,32 +903,36 @@ export const App: React.FC = () => {
                   </button>
                 )}
 
-                <button
-                  type="button"
-                  className="action-btn action-btn-eliminate"
-                  disabled={!topDiscard || (selectedMode === 'system' && gameState.currentPlayerIndex === 1)}
-                  onClick={() => {
-                    setIsReplacingFromDiscardMode(false);
-                    engine.startElimination();
-                    syncEngineState();
-                  }}
-                  id="start-elimination-btn"
-                >
-                  ⚡ Match & Eliminate ({topDiscard ? `${topDiscard.pointValue} pts` : 'No Discard'})
-                </button>
+                {topDiscard && (
+                  <button
+                    type="button"
+                    className="action-btn action-btn-eliminate"
+                    disabled={selectedMode === 'system' && gameState.currentPlayerIndex === 1}
+                    onClick={() => {
+                      setIsReplacingFromDiscardMode(false);
+                      engine.startElimination();
+                      syncEngineState();
+                    }}
+                    id="start-elimination-btn"
+                  >
+                    ⚡ Match Discard ({topDiscard.rank})
+                  </button>
+                )}
 
-                <button
-                  type="button"
-                  className="action-btn action-btn-declare"
-                  disabled={!gameState.firstRoundCompleted || (selectedMode === 'system' && gameState.currentPlayerIndex === 1)}
-                  onClick={() => {
-                    setIsReplacingFromDiscardMode(false);
-                    setShowDeclareVictoryConfirm(true);
-                  }}
-                  id="declare-victory-btn"
-                >
-                  🏆 Declare Victory
-                </button>
+                {gameState.firstRoundCompleted && (
+                  <button
+                    type="button"
+                    className="action-btn action-btn-declare"
+                    disabled={selectedMode === 'system' && gameState.currentPlayerIndex === 1}
+                    onClick={() => {
+                      setIsReplacingFromDiscardMode(false);
+                      setShowDeclareVictoryConfirm(true);
+                    }}
+                    id="declare-victory-btn"
+                  >
+                    🏆 Declare Victory
+                  </button>
+                )}
               </>
             )}
 
@@ -936,12 +1009,13 @@ export const App: React.FC = () => {
             )}
           </section>
 
-          {/* Active Player Mat */}
-          {activePlayer && (
+          {/* Local Human Player Mat (Always at bottom in Bot Mode) */}
+          {localPlayer && (
             <PlayerMat
-              player={activePlayer}
-              isActiveTurn={true}
+              player={localPlayer}
+              isActiveTurn={gameState.currentPlayerIndex === gameState.players.indexOf(localPlayer)}
               isSelf={true}
+              highlightedIndices={humanHighlightedIndices}
               interactive={(isReplacingMode || isReplacingFromDiscardMode) && isMyTurnInNetwork}
               prompt={
                 isReplacingFromDiscardMode
@@ -1161,10 +1235,14 @@ export const App: React.FC = () => {
           onPlayAgain={() => {
             setSelectedMode(null);
             setActiveRoom(null);
-            setGameState({
-              ...engine.getState(),
-              currentPhase: 'SETUP',
-            });
+            setMyGamePlayerId(null);
+            aiBotRef.current = null;
+            isAiThinkingRef.current = false;
+            const fresh = engine.reset();
+            setGameState(fresh);
+            try {
+              localStorage.removeItem(LOCAL_STORAGE_KEY);
+            } catch {}
           }}
         />
       )}

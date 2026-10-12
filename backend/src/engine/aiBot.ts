@@ -47,14 +47,15 @@ export class AIBot {
    * Makes a turn decision at TURN_START.
    */
   public decideTurnStartAction(
-    engine: GameEngine
+    engine: GameEngine,
+    allowDiscardReplacement: boolean = true
   ): 'ELIMINATE' | 'DECLARE_VICTORY' | 'REPLACE_FROM_DISCARD' | 'DRAW' {
     const state = engine.getState();
     const self = state.players.find((p) => p.id === this.playerId);
     if (!self) return 'DRAW';
 
     // 1. Check if eligible for victory declaration:
-    // If round 1 complete, and AI has low total score (e.g. <= 6) across known cards and few cards
+    // If round 1 complete, and AI has low total score (e.g. <= 8) across known cards and few cards
     if (state.firstRoundCompleted && self.cards.length <= 4) {
       let knownScore = 0;
       let knownCount = 0;
@@ -73,12 +74,13 @@ export class AIBot {
     if (state.discardPile.length > 0) {
       const topDiscard = state.discardPile[state.discardPile.length - 1];
       const targetPoint = topDiscard.pointValue;
+      const targetRank = topDiscard.rank;
 
-      // Find any known cards in hand that match targetPoint
+      // Find any known cards in hand that match targetRank or targetPoint
       const matchingIndices: number[] = [];
       self.cards.forEach((_, idx) => {
         const known = this.memory.ownKnownCards.get(idx);
-        if (known && known.pointValue === targetPoint) {
+        if (known && (known.rank === targetRank || known.pointValue === targetPoint)) {
           matchingIndices.push(idx);
         }
       });
@@ -88,8 +90,8 @@ export class AIBot {
       }
     }
 
-    // 3. Check if top discard card is attractive to replace a higher known card in hand:
-    if (state.discardPile.length > 0) {
+    // 3. Check if top discard card is attractive to replace a higher known card in hand (only if allowed by mode):
+    if (allowDiscardReplacement && state.discardPile.length > 0) {
       const topDiscard = state.discardPile[state.discardPile.length - 1];
       const replaceIdx = this.getBestDiscardReplacementIndex(engine);
       if (replaceIdx !== -1 && topDiscard.pointValue <= 7) {
@@ -141,11 +143,12 @@ export class AIBot {
 
     const topDiscard = state.discardPile[state.discardPile.length - 1];
     const targetPoint = topDiscard.pointValue;
+    const targetRank = topDiscard.rank;
 
     const matchingIndices: number[] = [];
     self.cards.forEach((_, idx) => {
       const known = this.memory.ownKnownCards.get(idx);
-      if (known && known.pointValue === targetPoint) {
+      if (known && (known.rank === targetRank || known.pointValue === targetPoint)) {
         matchingIndices.push(idx);
       }
     });

@@ -10,6 +10,7 @@ interface PlayerMatProps {
   interactive?: boolean;
   selectedIndices?: number[];
   targetIndices?: number[];
+  highlightedIndices?: number[];
   prompt?: string;
 }
 
@@ -21,18 +22,35 @@ export const PlayerMat: React.FC<PlayerMatProps> = ({
   interactive = false,
   selectedIndices = [],
   targetIndices = [],
+  highlightedIndices = [],
   prompt,
 }) => {
+  const mistakes = player.incorrectEliminationCount || 0;
+  const mistakeBadgeStyle: React.CSSProperties = {
+    fontSize: '0.74rem',
+    padding: '2px 8px',
+    borderRadius: '10px',
+    fontWeight: 700,
+    background: mistakes >= 5 ? 'rgba(239, 68, 68, 0.25)' : mistakes >= 3 ? 'rgba(245, 158, 11, 0.25)' : 'rgba(255, 255, 255, 0.08)',
+    color: mistakes >= 5 ? '#f87171' : mistakes >= 3 ? '#fbbf24' : 'rgba(255, 255, 255, 0.65)',
+    border: mistakes >= 5 ? '1px solid rgba(239, 68, 68, 0.5)' : mistakes >= 3 ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(255, 255, 255, 0.1)',
+  };
+
   if (!isSelf) {
     // Opponent compact mat
     return (
       <div className={`opponent-mat ${isActiveTurn ? 'is-active-turn' : ''}`}>
         <div className="opponent-header">
           <span className="opponent-name">
-            {isActiveTurn && <span style={{ color: 'var(--gold-primary)' }}>▶</span>}
+            {isActiveTurn && <span style={{ color: 'var(--gold-primary)' }}>▶ </span>}
             {player.displayName}
           </span>
-          <span className="opponent-card-count">{player.cards.length} Cards</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={mistakeBadgeStyle} title="Incorrect elimination attempts (6 = automatic defeat)">
+              ⚠️ Mistakes: {mistakes}/6
+            </span>
+            <span className="opponent-card-count">{player.cards.length} Cards</span>
+          </div>
         </div>
         <div className="cards-mini-grid">
           {player.cards.map((card, idx) => (
@@ -41,6 +59,7 @@ export const PlayerMat: React.FC<PlayerMatProps> = ({
               card={null}
               isFaceUp={false}
               size="small"
+              highlighted={highlightedIndices.includes(idx)}
               label={`${player.displayName}'s card ${idx + 1}`}
             />
           ))}
@@ -59,8 +78,13 @@ export const PlayerMat: React.FC<PlayerMatProps> = ({
           </div>
           <div>
             <div className="active-player-title">{player.displayName}</div>
-            <div style={{ fontSize: '0.82rem', color: 'var(--gold-light)' }}>
-              {player.cards.length} Cards in Hand
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 2 }}>
+              <div style={{ fontSize: '0.82rem', color: 'var(--gold-light)' }}>
+                {player.cards.length} Cards in Hand
+              </div>
+              <span style={mistakeBadgeStyle} title="Incorrect elimination attempts (6 = automatic defeat)">
+                ⚠️ Mistakes: {mistakes}/6
+              </span>
             </div>
           </div>
         </div>
@@ -76,11 +100,12 @@ export const PlayerMat: React.FC<PlayerMatProps> = ({
         {player.cards.map((card, index) => {
           const isSelected = selectedIndices.includes(index);
           const isTarget = targetIndices.includes(index);
+          const isHighlighted = highlightedIndices.includes(index);
 
           return (
             <div key={card.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                Position {index + 1}
+              <span style={{ fontSize: '0.75rem', color: isHighlighted ? 'var(--gold-light)' : 'var(--text-muted)', fontWeight: isHighlighted ? 700 : 400 }}>
+                {isHighlighted ? '🔄 Jack Swap' : `Position ${index + 1}`}
               </span>
               <CardView
                 card={null}
@@ -88,6 +113,7 @@ export const PlayerMat: React.FC<PlayerMatProps> = ({
                 interactive={interactive}
                 selected={isSelected}
                 isTarget={isTarget}
+                highlighted={isHighlighted}
                 onClick={() => onCardClick?.(index)}
                 label={`Your card at position ${index + 1}`}
               />

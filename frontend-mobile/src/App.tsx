@@ -269,7 +269,7 @@ export const App: React.FC = () => {
             engine.confirmPassDevice();
             syncEngineState();
           } else if (gameState.currentPhase === 'TURN_START') {
-            const decision = aiBot.decideTurnStartAction(engine);
+            const decision = aiBot.decideTurnStartAction(engine, false);
             if (decision === 'DECLARE_VICTORY') {
               engine.declareVictory();
             } else if (decision === 'ELIMINATE') {
@@ -338,7 +338,7 @@ export const App: React.FC = () => {
     }
   }, [selectedMode, gameState, engine, syncEngineState]);
 
-  // Mode 1: Start Game with System (AI Bot)
+  // Mode 1: Start Game with System (AI Bot - Bot Plays First)
   const startSystemMatch = () => {
     playSfx('deal');
     setSelectedMode('system');
@@ -346,6 +346,8 @@ export const App: React.FC = () => {
     const humanName = currentUser?.username || 'You';
     engine.initializeGame({
       playerNames: [humanName, 'Bot'],
+      firstPlayerIndex: 1, // Bot plays first!
+      mode: 'system',
     });
     syncEngineState();
   };
@@ -464,16 +466,41 @@ export const App: React.FC = () => {
   const handleLeaveRoom = () => {
     setActiveRoom(null);
     setSelectedMode(null);
-    setGameState(engine.getState());
+    setMyGamePlayerId(null);
+    aiBotRef.current = null;
+    isAiThinkingRef.current = false;
+    const freshState = engine.reset();
+    setGameState(freshState);
+    try {
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
+    } catch {}
   };
 
   // Logout action
   const handleLogout = () => {
     soundManager.stopAmbientMusic();
-    setCurrentUser(null);
-    setShowProfile(false);
+    const freshState = engine.reset();
+    setGameState(freshState);
     setSelectedMode(null);
     setActiveRoom(null);
+    setMyGamePlayerId(null);
+    aiBotRef.current = null;
+    isAiThinkingRef.current = false;
+    setShowProfile(false);
+    setShowRules(false);
+    setShowMultiplayerModal(false);
+    setShowRoomDrawer(false);
+    setShowActionLog(false);
+    setShowDeclareVictoryConfirm(false);
+    setShowExitConfirm(false);
+    setIsReplacingMode(false);
+    setIsReplacingFromDiscardMode(false);
+    try {
+      sessionStorage.removeItem(USER_SESSION_KEY);
+      localStorage.removeItem(USER_STORAGE_KEY);
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
+    } catch {}
+    setCurrentUser(null);
   };
 
   const activePlayer = gameState.players[gameState.currentPlayerIndex];
@@ -494,6 +521,38 @@ export const App: React.FC = () => {
   const isMyTurnInNetwork = activeRoom
     ? activePlayer?.id === myGamePlayerId
     : (selectedMode === 'system' ? gameState.currentPlayerIndex === 0 : true);
+
+  // Jack highlight indices for visual indication (5-6s timer)
+  const botHighlightedIndices = gameState.jackHighlight
+    ? [
+        gameState.jackHighlight.opponentPlayerId === 'player-2'
+          ? gameState.jackHighlight.opponentCardIndex
+          : gameState.jackHighlight.ownPlayerId === 'player-2'
+          ? gameState.jackHighlight.ownCardIndex
+          : -1,
+      ].filter((i) => i >= 0)
+    : [];
+
+  const humanHighlightedIndices = gameState.jackHighlight
+    ? [
+        gameState.jackHighlight.opponentPlayerId === 'player-1'
+          ? gameState.jackHighlight.opponentCardIndex
+          : gameState.jackHighlight.ownPlayerId === 'player-1'
+          ? gameState.jackHighlight.ownCardIndex
+          : -1,
+      ].filter((i) => i >= 0)
+    : [];
+
+  // Jack highlight cleanup after 5.5s
+  useEffect(() => {
+    if (!gameState.jackHighlight) return;
+    const remaining = Math.max(0, gameState.jackHighlight.activeUntil - Date.now());
+    const timer = setTimeout(() => {
+      engine.clearJackHighlight();
+      syncEngineState();
+    }, remaining || 5500);
+    return () => clearTimeout(timer);
+  }, [gameState.jackHighlight, engine, syncEngineState]);
 
   const shouldShowDrawnCardFaceUp = Boolean(
     isMyTurnInNetwork && !gameState.pendingDrawnCard?.id.startsWith('hidden')
@@ -537,7 +596,14 @@ export const App: React.FC = () => {
             logger.info('GAME', 'Player left current game');
             setSelectedMode(null);
             setActiveRoom(null);
-            setGameState({ ...engine.getState(), currentPhase: 'SETUP' });
+            setMyGamePlayerId(null);
+            aiBotRef.current = null;
+            isAiThinkingRef.current = false;
+            const fresh = engine.reset();
+            setGameState(fresh);
+            try {
+              localStorage.removeItem(LOCAL_STORAGE_KEY);
+            } catch {}
           }
         }}
         isGameActive={gameState.currentPhase !== 'SETUP'}
@@ -728,6 +794,7 @@ export const App: React.FC = () => {
                     player={opp}
                     isActiveTurn={gameState.currentPlayerIndex === gameState.players.indexOf(opp)}
                     isSelf={false}
+                    highlightedIndices={botHighlightedIndices}
                   />
                 </div>
               ))}
@@ -773,44 +840,15 @@ export const App: React.FC = () => {
                   ? 'Tap hand card to swap with drawn'
                   : gameState.currentPhase === 'CARD_DRAWN'
                   ? 'Choose action below'
-                  : 'Draw card or swap discard'}
+                  : topDiscard
+                  ? 'Draw card or match discard'
+                  : 'Draw card to play'}
               </span>
             </div>
 
-            {/* CENTER ARENA: 40 CARDS, DRAW PILE, IN HAND */}
+            {/* CENTER ARENA: 3 AREAS (LEFT: DRAW PILE, MIDDLE: DRAWN CARD, RIGHT: DISCARD PILE) */}
             <section className="center-field-arena" aria-label="Center Field Arena">
-              {/* LEFT SLOT: 40 DISCARD PILE */}
-              <div
-                className="center-slot-column"
-                onClick={() => {
-                  if (gameState.currentPhase === 'TURN_START' && isMyTurnInNetwork && topDiscard) {
-                    soundManager.playClick();
-                    setIsReplacingFromDiscardMode(!isReplacingFromDiscardMode);
-                  }
-                }}
-              >
-                <div className="center-card-frame-wrapper">
-                  {topDiscard ? (
-                    <CardView
-                      card={topDiscard}
-                      isFaceUp
-                      size="medium"
-                      label={`Discard pile top: ${topDiscard.rank}`}
-                    />
-                  ) : (
-                    <CardView
-                      card={null}
-                      isFaceUp={false}
-                      size="medium"
-                      cardTheme="diamond"
-                      label="Discard pile slot"
-                    />
-                  )}
-                </div>
-                <span className="center-slot-label-bottom">{gameState.drawPile.length}</span>
-              </div>
-
-              {/* MIDDLE SLOT: DRAW PILE WITH 'IN HAND' LABEL */}
+              {/* LEFT AREA: DRAW PILE (STARTS WITH 40 CARDS) */}
               <div
                 className="center-slot-column"
                 onClick={() => {
@@ -841,48 +879,88 @@ export const App: React.FC = () => {
                     label={`Draw pile with ${gameState.drawPile.length} cards`}
                   />
                 </div>
-                <span className="center-slot-label-bottom">In Hand</span>
+                <span className="center-slot-label-bottom">{gameState.drawPile.length} Cards</span>
               </div>
 
-              {/* RIGHT SLOT: DEALT / FANNED CARDS IN IDENTICAL RATIO */}
+              {/* MIDDLE AREA: NEWLY DRAWN CARD (INSPECT & CHOOSE ACTION) */}
               <div className="center-slot-column">
-                <div className="center-card-frame-wrapper fanned-cards-container">
+                <div className="center-card-frame-wrapper">
                   {gameState.pendingDrawnCard ? (
                     <CardView
                       card={shouldShowDrawnCardFaceUp ? gameState.pendingDrawnCard : null}
                       isFaceUp={shouldShowDrawnCardFaceUp}
                       size="medium"
                       cardTheme="light"
-                      label="Your currently drawn card"
+                      label={
+                        shouldShowDrawnCardFaceUp
+                          ? `Drawn: ${gameState.pendingDrawnCard.rank} (${gameState.pendingDrawnCard.pointValue} pts)`
+                          : 'Drawn Card'
+                      }
                     />
                   ) : (
-                    /* Stylized fanned cards preview with matching medium card ratio */
-                    <>
-                      <div className="fan-card-layer fan-card-1">
-                        <CardView
-                          card={{ id: 'fan-1', suit: 'SPADES', rank: '7', pointValue: 7 }}
-                          isFaceUp
-                          size="medium"
-                        />
-                      </div>
-                      <div className="fan-card-layer fan-card-2">
-                        <CardView
-                          card={{ id: 'fan-2', suit: 'HEARTS', rank: '6', pointValue: 6 }}
-                          isFaceUp
-                          size="medium"
-                        />
-                      </div>
-                      <div className="fan-card-layer fan-card-3">
-                        <CardView
-                          card={{ id: 'fan-3', suit: 'DIAMONDS', rank: '9', pointValue: 9 }}
-                          isFaceUp
-                          size="medium"
-                        />
-                      </div>
-                    </>
+                    <div
+                      className="card-frame size-medium is-face-down"
+                      style={{
+                        border: '2px dashed rgba(255, 255, 255, 0.2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'rgba(255, 255, 255, 0.4)',
+                        fontSize: '0.75rem',
+                        textAlign: 'center',
+                        borderRadius: '10px',
+                        padding: '4px',
+                      }}
+                    >
+                      Drawn Card
+                    </div>
                   )}
                 </div>
-                <span className="center-slot-label-bottom invisible-spacer">&nbsp;</span>
+                <span className="center-slot-label-bottom">
+                  {gameState.pendingDrawnCard && shouldShowDrawnCardFaceUp
+                    ? `${gameState.pendingDrawnCard.pointValue} pts`
+                    : 'Middle Area'}
+                </span>
+              </div>
+
+              {/* RIGHT AREA: DISCARD PILE (VISIBLE, USED FOR ELIMINATION) */}
+              <div
+                className="center-slot-column"
+                onClick={() => {
+                  if (selectedMode !== 'system' && gameState.currentPhase === 'TURN_START' && isMyTurnInNetwork && topDiscard) {
+                    soundManager.playClick();
+                    setIsReplacingFromDiscardMode(!isReplacingFromDiscardMode);
+                  }
+                }}
+              >
+                <div className="center-card-frame-wrapper">
+                  {topDiscard ? (
+                    <CardView
+                      card={topDiscard}
+                      isFaceUp
+                      size="medium"
+                      label={`Discard pile top: ${topDiscard.rank}`}
+                    />
+                  ) : (
+                    <div
+                      className="card-frame size-medium is-face-down"
+                      style={{
+                        border: '2px dashed rgba(255, 255, 255, 0.15)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'rgba(255, 255, 255, 0.3)',
+                        fontSize: '0.75rem',
+                        borderRadius: '10px',
+                      }}
+                    >
+                      Empty
+                    </div>
+                  )}
+                </div>
+                <span className="center-slot-label-bottom">
+                  {topDiscard ? `Discard (${topDiscard.rank})` : 'Discard (0)'}
+                </span>
               </div>
             </section>
 
@@ -913,7 +991,7 @@ export const App: React.FC = () => {
                     🎴 Draw Card
                   </button>
 
-                  {topDiscard && (
+                  {topDiscard && selectedMode !== 'system' && (
                     <button
                       type="button"
                       className={`game-action-btn ${isReplacingFromDiscardMode ? 'btn-primary' : ''}`}
@@ -935,21 +1013,22 @@ export const App: React.FC = () => {
                     }}
                     id="start-elimination-btn"
                   >
-                    ⚡ Eliminate
+                    ⚡ Match Discard
                   </button>
 
-                  <button
-                    type="button"
-                    className="game-action-btn btn-gold"
-                    disabled={!gameState.firstRoundCompleted}
-                    onClick={() => {
-                      setIsReplacingFromDiscardMode(false);
-                      setShowDeclareVictoryConfirm(true);
-                    }}
-                    id="declare-victory-btn"
-                  >
-                    🏆 Victory
-                  </button>
+                  {gameState.firstRoundCompleted && (
+                    <button
+                      type="button"
+                      className="game-action-btn btn-gold"
+                      onClick={() => {
+                        setIsReplacingFromDiscardMode(false);
+                        setShowDeclareVictoryConfirm(true);
+                      }}
+                      id="declare-victory-btn"
+                    >
+                      🏆 Victory
+                    </button>
+                  )}
                 </>
               )}
 
@@ -1033,6 +1112,7 @@ export const App: React.FC = () => {
                 player={localPlayer}
                 isActiveTurn={gameState.currentPlayerIndex === gameState.players.indexOf(localPlayer)}
                 isSelf={true}
+                highlightedIndices={humanHighlightedIndices}
                 interactive={(isReplacingMode || isReplacingFromDiscardMode) && isMyTurnInNetwork}
                 prompt={
                   isReplacingFromDiscardMode
@@ -1336,10 +1416,14 @@ export const App: React.FC = () => {
             onPlayAgain={() => {
               setSelectedMode(null);
               setActiveRoom(null);
-              setGameState({
-                ...engine.getState(),
-                currentPhase: 'SETUP',
-              });
+              setMyGamePlayerId(null);
+              aiBotRef.current = null;
+              isAiThinkingRef.current = false;
+              const fresh = engine.reset();
+              setGameState(fresh);
+              try {
+                localStorage.removeItem(LOCAL_STORAGE_KEY);
+              } catch {}
             }}
           />
         )}
@@ -1381,10 +1465,14 @@ export const App: React.FC = () => {
                     setShowExitConfirm(false);
                     setSelectedMode(null);
                     setActiveRoom(null);
-                    setGameState({
-                      ...engine.getState(),
-                      currentPhase: 'SETUP',
-                    });
+                    setMyGamePlayerId(null);
+                    aiBotRef.current = null;
+                    isAiThinkingRef.current = false;
+                    const fresh = engine.reset();
+                    setGameState(fresh);
+                    try {
+                      localStorage.removeItem(LOCAL_STORAGE_KEY);
+                    } catch {}
                   }}
                 >
                   Exit

@@ -11,6 +11,7 @@ interface CardViewProps {
   onClick?: () => void;
   label?: string;
   disabled?: boolean;
+  highlighted?: boolean;
 }
 
 const SUIT_SYMBOLS: Record<Suit, string> = {
@@ -27,6 +28,7 @@ export const CardView: React.FC<CardViewProps> = ({
   interactive = false,
   selected = false,
   isTarget = false,
+  highlighted = false,
   onClick,
   label,
   disabled = false,
@@ -40,6 +42,7 @@ export const CardView: React.FC<CardViewProps> = ({
     interactive && !disabled ? 'interactive' : '',
     selected ? 'selected' : '',
     isTarget ? 'selectable-target' : '',
+    highlighted ? 'jack-highlight-card' : '',
   ]
     .filter(Boolean)
     .join(' ');

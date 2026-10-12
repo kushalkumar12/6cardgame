@@ -8,6 +8,8 @@ export interface Player {
   hasTakenFirstTurn: boolean;
   /** For initial memorization tracking */
   memorizedCardIndices: number[];
+  /** Track failed elimination attempts (reaches 6 = instant loss) */
+  incorrectEliminationCount: number;
 }
 
 export type GamePhase =
@@ -27,7 +29,8 @@ export type GamePhase =
 export type EndReason =
   | 'DECLARED_VICTORY'
   | 'DRAW_PILE_EMPTY'
-  | 'ZERO_CARD_AUTOMATIC_VICTORY';
+  | 'ZERO_CARD_AUTOMATIC_VICTORY'
+  | 'SIX_WRONG_ATTEMPTS';
 
 export interface ActionLogEntry {
   id: string;
@@ -42,6 +45,14 @@ export interface PendingPenalty {
   penaltyCard: Card;
   attemptedPositions: number[];
   targetPointValue: number;
+}
+
+export interface JackHighlightState {
+  ownPlayerId: string;
+  ownCardIndex: number;
+  opponentPlayerId: string;
+  opponentCardIndex: number;
+  activeUntil: number;
 }
 
 export interface GameState {
@@ -74,6 +85,9 @@ export interface GameState {
     opponentCardIndex: number | null;
   } | null;
 
+  /** Temporary visual indication of Jack card exchange positions (5 to 6 seconds) */
+  jackHighlight: JackHighlightState | null;
+
   /** Penalty state to show to player */
   pendingPenalty: PendingPenalty | null;
 
@@ -92,4 +106,6 @@ export interface GameState {
 
 export interface GameConfig {
   playerNames: string[];
+  firstPlayerIndex?: number;
+  mode?: 'system' | 'multiplayer' | 'pass_and_play';
 }

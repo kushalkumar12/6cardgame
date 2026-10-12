@@ -577,5 +577,50 @@ describe('GameEngine Unit Tests', () => {
 
       expect(() => engine.replaceCardFromDiscard(0)).toThrow('Discard pile is empty');
     });
+
+    it('triggers SIX_WRONG_ATTEMPTS automatic loss on the 6th failed elimination attempt', () => {
+      const engine = new GameEngine({ playerNames: ['P1', 'P2'] });
+      const state = engine.getState();
+      state.currentPhase = 'TURN_START';
+      state.players[0].incorrectEliminationCount = 5; // already made 5 mistakes
+      state.discardPile = [{ id: 'd-5', rank: '5', suit: 'HEARTS', pointValue: 5 }];
+      state.players[0].cards = [
+        { id: 'p1-K', rank: 'K', suit: 'CLUBS', pointValue: 0 },
+        { id: 'p1-A', rank: 'A', suit: 'SPADES', pointValue: 1 },
+      ];
+      state.drawPile = [
+        { id: 'pen-1', rank: '9', suit: 'DIAMONDS', pointValue: 9 },
+      ];
+      engine.loadState(state);
+
+      engine.startElimination();
+      const res = engine.attemptElimination([0]); // tries to match K with 5 -> fails!
+
+      expect(res.success).toBe(false);
+      const endState = engine.getState();
+      expect(endState.players[0].incorrectEliminationCount).toBe(6);
+      expect(endState.gameOver).toBe(true);
+      expect(endState.endReason).toBe('SIX_WRONG_ATTEMPTS');
+      expect(endState.winnerIds).toEqual(['player-2']); // opponent P2 wins immediately
+    });
+
+    it('sets jackHighlight for 5 to 6 seconds upon Jack exchange', () => {
+      const engine = new GameEngine({ playerNames: ['P1', 'P2'] });
+      const state = engine.getState();
+      state.currentPhase = 'SPECIAL_ABILITY_JACK';
+      state.pendingDrawnCard = { id: 'j-1', rank: 'J', suit: 'SPADES', pointValue: 40 };
+      state.players[0].cards = [{ id: 'p1-c0', rank: 'K', suit: 'HEARTS', pointValue: 0 }];
+      state.players[1].cards = [{ id: 'p2-c0', rank: 'A', suit: 'CLUBS', pointValue: 1 }];
+      engine.loadState(state);
+
+      engine.setJackSelection(0, 'player-2', 0);
+      engine.executeJackExchange();
+
+      const after = engine.getState();
+      expect(after.jackHighlight).not.toBeNull();
+      expect(after.jackHighlight?.ownPlayerId).toBe('player-1');
+      expect(after.jackHighlight?.opponentPlayerId).toBe('player-2');
+      expect(after.jackHighlight?.activeUntil).toBeGreaterThan(Date.now());
+    });
   });
 });

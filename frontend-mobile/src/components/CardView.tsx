@@ -1,6 +1,6 @@
 import React from 'react';
-import type { Card, Suit } from '../types/card';
-import { ComedyMask, QuestionMarkIcon, DiamondOutlineIcon } from './Icons';
+import type { Card, Suit, Rank } from '../types/card';
+import { QuestionMarkIcon, DiamondOutlineIcon } from './Icons';
 
 interface CardViewProps {
   card?: Card | null;
@@ -13,13 +13,22 @@ interface CardViewProps {
   label?: string;
   disabled?: boolean;
   cardTheme?: 'dark' | 'light' | 'question' | 'diamond';
+  highlighted?: boolean;
 }
 
-const SUIT_SYMBOLS: Record<Suit, string> = {
-  HEARTS: '♥',
-  DIAMONDS: '♦',
-  SPADES: '♠',
-  CLUBS: '♣',
+/**
+ * Resolves the block52 SVG card asset path based on card rank and suit.
+ * Note: block52 uses 'T' for rank 10 (e.g. TC.svg, TD.svg, TH.svg, TS.svg).
+ */
+export const getCardSvgUrl = (rank: Rank, suit: Suit): string => {
+  const rankCode = rank === '10' ? 'T' : rank;
+  const suitCode = {
+    SPADES: 'S',
+    HEARTS: 'H',
+    DIAMONDS: 'D',
+    CLUBS: 'C',
+  }[suit] || 'S';
+  return `/cards/${rankCode}${suitCode}.svg`;
 };
 
 export const CardView: React.FC<CardViewProps> = ({
@@ -29,14 +38,12 @@ export const CardView: React.FC<CardViewProps> = ({
   interactive = false,
   selected = false,
   isTarget = false,
+  highlighted = false,
   onClick,
   label,
   disabled = false,
   cardTheme = 'dark',
 }) => {
-  const isRed = card?.suit === 'HEARTS' || card?.suit === 'DIAMONDS';
-  const suitSymbol = card ? SUIT_SYMBOLS[card.suit] : '';
-
   const classNames = [
     'card-frame',
     `size-${size}`,
@@ -44,6 +51,7 @@ export const CardView: React.FC<CardViewProps> = ({
     interactive && !disabled ? 'interactive' : '',
     selected ? 'selected' : '',
     isTarget ? 'selectable-target' : '',
+    highlighted ? 'jack-highlight-card' : '',
     isFaceUp ? 'is-face-up' : 'is-face-down',
   ]
     .filter(Boolean)
@@ -68,45 +76,36 @@ export const CardView: React.FC<CardViewProps> = ({
         }
       }}
     >
-      {/* FACE UP STATE */}
+      {/* 1. FACE UP STATE: Authentic vector SVG card with floating point badge */}
       {isFaceUp && card ? (
-        <div className={`card-face-front ${isRed ? 'suit-red' : 'suit-black'}`}>
-          <div className="corner-index corner-top-left">
-            <span className="corner-rank">{card.rank}</span>
-            <span className="corner-suit">{suitSymbol}</span>
-          </div>
-
-          <div className="center-card-content">
-            <span className="center-suit-symbol">{suitSymbol}</span>
-            <ComedyMask size={18} color={isRed ? '#fecaca' : '#cbd5e1'} />
-          </div>
-
-          <div className="corner-index corner-bottom-right">
-            <span className="corner-rank">{card.rank}</span>
-            <span className="corner-suit">{suitSymbol}</span>
-          </div>
-
+        <div className="card-face-svg-wrapper">
+          <img
+            src={getCardSvgUrl(card.rank, card.suit)}
+            alt={`${card.rank} of ${card.suit}`}
+            className="card-svg-image"
+            draggable={false}
+          />
           <div className="card-points-badge">{card.pointValue}p</div>
         </div>
       ) : cardTheme === 'question' ? (
-        /* DRAW PILE SPECIAL CARD (White textured card with ? circle) */
+        /* 2. DRAW PILE SPECIAL CARD (White textured card with ? circle) */
         <div className="card-face-question">
           <QuestionMarkIcon size={28} />
         </div>
       ) : cardTheme === 'diamond' ? (
-        /* DISCARD EMPTY / SPECIAL CARD (Dark card with blue diamond outline) */
+        /* 3. DISCARD EMPTY / SPECIAL CARD (Dark card with blue diamond outline) */
         <div className="card-face-diamond">
           <DiamondOutlineIcon size={28} />
         </div>
-      ) : cardTheme === 'light' ? (
-        /* LIGHT CARD BACK (White with dark mask - Used by opponent/bot) */
-        <div className="card-face-back light-back">
-          <ComedyMask size={22} color="#0c1524" />
-        </div>
       ) : (
-        /* DARK CARD BACK (Navy with white mask & blue border - Used by player) */
-        <div className="card-face-back dark-back">
-          <ComedyMask size={22} color="#ffffff" />
+        /* 4. FACE-DOWN CASINO CARD BACK */
+        <div className={`card-face-svg-wrapper ${cardTheme === 'light' ? 'light-back' : 'dark-back'}`}>
+          <img
+            src="/cards/Back.svg"
+            alt="Card Back"
+            className="card-svg-image"
+            draggable={false}
+          />
         </div>
       )}
     </div>

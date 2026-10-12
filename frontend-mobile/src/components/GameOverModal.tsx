@@ -25,6 +25,9 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   let reasonTitle = 'Game Over';
   if (endReason === 'ZERO_CARD_AUTOMATIC_VICTORY') {
     reasonTitle = 'Automatic Victory! (0 Cards Left)';
+  } else if (endReason === 'SIX_WRONG_ATTEMPTS') {
+    const loser = players.find((p) => p.incorrectEliminationCount >= 6);
+    reasonTitle = `Automatic Defeat: 6 Mistakes by ${loser?.displayName || 'Player'}`;
   } else if (endReason === 'DECLARED_VICTORY') {
     reasonTitle = `Victory Declared by ${declaringPlayer?.displayName || winners[0]?.displayName || 'Player'}`;
   } else if (endReason === 'DRAW_PILE_EMPTY') {
@@ -39,7 +42,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
       isWinner: winnerIds.includes(p.id),
     }))
     .sort((a, b) => {
-      if (endReason === 'ZERO_CARD_AUTOMATIC_VICTORY') {
+      if (endReason === 'ZERO_CARD_AUTOMATIC_VICTORY' || endReason === 'SIX_WRONG_ATTEMPTS') {
         if (a.isWinner) return -1;
         if (b.isWinner) return 1;
       }
@@ -86,6 +89,10 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
             {endReason === 'ZERO_CARD_AUTOMATIC_VICTORY' ? (
               <p style={{ margin: 0, fontSize: '1rem', color: '#fef08a', fontWeight: 800 }}>
                 🎉 {winners[0]?.displayName} eliminated all cards and won immediately!
+              </p>
+            ) : endReason === 'SIX_WRONG_ATTEMPTS' ? (
+              <p style={{ margin: 0, fontSize: '1rem', color: '#fef08a', fontWeight: 800 }}>
+                ⚠️ {players.find((p) => p.incorrectEliminationCount >= 6)?.displayName} made 6 incorrect elimination attempts! {winners[0]?.displayName} wins the match!
               </p>
             ) : isTie ? (
               <p style={{ margin: 0, fontSize: '1rem', color: '#fef08a', fontWeight: 800 }}>

@@ -215,6 +215,22 @@ At the end of the final round, all cards of all players are flipped face up, and
 - The game ends immediately.
 - All cards are revealed, and the player with the lowest total score wins.
 
+### D. ⚠️ Six Incorrect Elimination Attempts Automatic Defeat (`SIX_WRONG_ATTEMPTS`)
+- Every incorrect elimination attempt adds 1 penalty card to the player's hand and increments that player's mistake counter.
+- If any player accumulates **6 incorrect elimination attempts**, that player **automatically loses the match immediately**.
+- The opponent is declared the winner regardless of current card values.
+
+---
+
+## 7.1 Bot Mode Specific Rules & Flow
+In 1v1 Bot Mode (Human vs System AI):
+1. **Turn Order**: The bot plays **first** (`Bot Turn 1`). The human player plays **second** (`Player Turn 1`).
+2. **First Round Lifecycle**: Round 1 is complete only after both the bot and the human player have completed one turn each.
+3. **Victory Button Visibility**: The Victory button is **hidden during Round 1**. It becomes visible from **Round 2 onwards** and remains available while the match is active.
+4. **Instant Victory Resolution**: When Victory is declared, remaining cards are immediately revealed and scored. The player with the lower score wins (or a tie if scores are equal). No final round or undercut penalty is applied.
+5. **Jack Exchange Visual Indication**: When Jack ability exchanges cards, a temporary blinking/pulsing outline highlights the involved card positions for **5 to 6 seconds** without revealing card values.
+6. **Central Table Layout**: Left area = Draw Pile (starts with 40 cards), Middle area = Drawn Card, Right area = Discard Pile. Option 2 (Replace from Discard) is removed in Bot Mode; the discard pile is used exclusively for elimination.
+
 ---
 
 ## 8. Hand Layout Views: Line vs. Grid

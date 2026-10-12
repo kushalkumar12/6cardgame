@@ -53,6 +53,7 @@ export class GameEngine {
       initialMemorizationPlayerIndex: 0,
       peekedCard: null,
       jackSelection: null,
+      jackHighlight: null,
       pendingPenalty: null,
       selectedEliminationIndices: [],
       gameOver: false,
@@ -64,10 +65,18 @@ export class GameEngine {
   }
 
   /**
+   * Resets the engine back to its default clean setup state.
+   */
+  public reset(): GameState {
+    this.state = this.createDefaultEmptyState();
+    return this.state;
+  }
+
+  /**
    * Initializes a new game with the given configuration.
    */
   public initializeGame(config: GameConfig): GameState {
-    const { playerNames } = config;
+    const { playerNames, firstPlayerIndex } = config;
     const playerCount = playerNames.length;
 
     if (playerCount < 2 || playerCount > 6) {
@@ -92,6 +101,7 @@ export class GameEngine {
         cards: hand,
         hasTakenFirstTurn: false,
         memorizedCardIndices: [],
+        incorrectEliminationCount: 0,
       });
     }
 
@@ -99,9 +109,13 @@ export class GameEngine {
     const discardPile: Card[] = [];
     const eliminatedCards: Card[] = [];
 
+    const startPlayerIdx = firstPlayerIndex !== undefined && firstPlayerIndex >= 0 && firstPlayerIndex < playerCount
+      ? firstPlayerIndex
+      : 0;
+
     const initialState: GameState = {
       players,
-      currentPlayerIndex: 0,
+      currentPlayerIndex: startPlayerIdx,
       roundNumber: 1,
       firstRoundCompleted: false,
       drawPile,
@@ -112,6 +126,7 @@ export class GameEngine {
       initialMemorizationPlayerIndex: 0,
       peekedCard: null,
       jackSelection: null,
+      jackHighlight: null,
       pendingPenalty: null,
       selectedEliminationIndices: [],
       gameOver: false,
@@ -604,6 +619,15 @@ export class GameEngine {
     this.state.pendingDrawnCard = null;
     this.state.jackSelection = null;
 
+    // Temporary visual indication of Jack card exchange positions (5 to 6 seconds)
+    this.state.jackHighlight = {
+      ownPlayerId: activePlayer.id,
+      ownCardIndex: sel.ownCardIndex,
+      opponentPlayerId: opponent.id,
+      opponentCardIndex: sel.opponentCardIndex,
+      activeUntil: Date.now() + 5500,
+    };
+
     this.state.actionHistory.push(
       createLogEntry(
         `${activePlayer.displayName} used the Jack ability to exchange a card with ${opponent.displayName}.`,
@@ -613,6 +637,13 @@ export class GameEngine {
     );
 
     this.advanceTurn();
+  }
+
+  /**
+   * Clears the Jack visual highlight.
+   */
+  public clearJackHighlight(): void {
+    this.state.jackHighlight = null;
   }
 
   /**
@@ -644,8 +675,9 @@ export class GameEngine {
   /**
    * Attempt matching elimination with the selected card indices against top of discard pile.
    * All-or-nothing:
-   * - If all match the top discard's point value: all eliminated permanently.
-   * - If ANY card does not match: none eliminated, and 1 penalty card drawn.
+   * - If all match the top discard's rank or point value: all eliminated permanently.
+   * - If ANY card does not match: none eliminated, 1 penalty card drawn, mistake counter +1.
+   * - 6 incorrect attempts trigger automatic loss.
    */
   public attemptElimination(selectedIndices: number[]): {
     success: boolean;
@@ -666,6 +698,7 @@ export class GameEngine {
     const player = this.getCurrentPlayer();
     const topDiscard = this.state.discardPile[this.state.discardPile.length - 1];
     const targetPointValue = topDiscard.pointValue;
+    const targetRank = topDiscard.rank;
 
     // Validate indices
     const uniqueIndices = Array.from(new Set(selectedIndices)).sort((a, b) => a - b);
@@ -676,7 +709,9 @@ export class GameEngine {
     }
 
     const selectedCards = uniqueIndices.map((idx) => player.cards[idx]);
-    const allMatch = selectedCards.every((card) => card.pointValue === targetPointValue);
+    const allMatch = selectedCards.every(
+      (card) => card.rank === targetRank || card.pointValue === targetPointValue
+    );
 
     if (allMatch) {
       // SUCCESS!
@@ -716,6 +751,8 @@ export class GameEngine {
       return { success: true, eliminatedCount: uniqueIndices.length };
     } else {
       // INCORRECT ELIMINATION PENALTY!
+      player.incorrectEliminationCount += 1;
+
       // Check if draw pile is empty
       if (this.state.drawPile.length === 0) {
         this.state.actionHistory.push(
@@ -741,11 +778,28 @@ export class GameEngine {
 
       this.state.actionHistory.push(
         createLogEntry(
-          `${player.displayName} made an incorrect elimination attempt and received 1 penalty card.`,
+          `${player.displayName} made an incorrect elimination attempt (${player.incorrectEliminationCount}/6) and received 1 penalty card.`,
           'PENALTY',
           player.id
         )
       );
+
+      // Check 6 incorrect attempts automatic loss
+      if (player.incorrectEliminationCount >= 6) {
+        const opponents = this.state.players.filter((p) => p.id !== player.id);
+        const opponentIds = opponents.map((o) => o.id);
+        const opponentNames = opponents.map((o) => o.displayName).join(', ');
+
+        this.state.actionHistory.push(
+          createLogEntry(
+            `${player.displayName} reached 6 incorrect elimination attempts! Automatic defeat! ${opponentNames} wins!`,
+            'END',
+            player.id
+          )
+        );
+        this.endGame('SIX_WRONG_ATTEMPTS', opponentIds);
+        return { success: false, eliminatedCount: 0, penaltyCard };
+      }
 
       this.state.currentPhase = 'PENALTY_NOTICE';
       return { success: false, eliminatedCount: 0, penaltyCard };
@@ -773,12 +827,16 @@ export class GameEngine {
     const currentPlayer = this.getCurrentPlayer();
     currentPlayer.hasTakenFirstTurn = true;
 
+    // Check if a full round just completed (all players have taken at least one turn)
+    if (!this.state.firstRoundCompleted && this.state.players.every((p) => p.hasTakenFirstTurn)) {
+      this.state.firstRoundCompleted = true;
+    }
+
     const nextPlayerIndex = (this.state.currentPlayerIndex + 1) % this.state.players.length;
 
     // Check if a full round just completed
     if (nextPlayerIndex === 0) {
       this.state.roundNumber += 1;
-      this.state.firstRoundCompleted = true;
       this.state.actionHistory.push(
         createLogEntry(`Round ${this.state.roundNumber} begins.`, 'TURN')
       );
@@ -800,7 +858,10 @@ export class GameEngine {
     this.state.endReason = reason;
     this.state.currentPhase = 'GAME_OVER';
 
-    if (reason === 'ZERO_CARD_AUTOMATIC_VICTORY' && specificWinnerIds) {
+    if (
+      (reason === 'ZERO_CARD_AUTOMATIC_VICTORY' || reason === 'SIX_WRONG_ATTEMPTS') &&
+      specificWinnerIds
+    ) {
       this.state.winnerIds = specificWinnerIds;
       return;
     }

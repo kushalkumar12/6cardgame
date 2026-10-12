@@ -7,7 +7,7 @@ interface GameOverModalProps {
   players: Player[];
   winnerIds: string[];
   endReason: EndReason | null;
-  declaringPlayerId: string | null;
+  declaringPlayerId?: string | null;
   onPlayAgain: () => void;
 }
 
@@ -26,7 +26,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   if (endReason === 'ZERO_CARD_AUTOMATIC_VICTORY') {
     reasonTitle = 'Automatic Victory! (0 Cards Left)';
   } else if (endReason === 'DECLARED_VICTORY') {
-    reasonTitle = `Victory Declared by ${declaringPlayer?.displayName || 'Player'}`;
+    reasonTitle = `Victory Declared by ${declaringPlayer?.displayName || winners[0]?.displayName || 'Player'}`;
   } else if (endReason === 'DRAW_PILE_EMPTY') {
     reasonTitle = 'Draw Pile Empty! Final Scoring';
   }
@@ -48,83 +48,132 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
 
   return (
     <div className="modal-backdrop">
-      <div className="modal-dialog" style={{ maxWidth: '850px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginBottom: 12 }}>
-          <img
-            src="/logo.png"
-            alt="Six Cards Logo"
-            style={{ width: 44, height: 44, objectFit: 'contain', borderRadius: 8 }}
-          />
-          <h2 style={{ fontSize: '2.1rem', margin: 0 }}>🏆 {reasonTitle}</h2>
+      <div
+        className="profile-modal-card"
+        style={{
+          height: 'min(86vh, 620px)',
+          minHeight: '480px',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="profile-modal-header" style={{ justifyContent: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <img
+              src="/logo.png"
+              alt="Six Cards Logo"
+              style={{ width: 34, height: 34, objectFit: 'contain', borderRadius: 8 }}
+            />
+            <h2 style={{ fontSize: '1.25rem', margin: 0, fontWeight: 800, color: '#ffffff' }}>
+              🏆 {reasonTitle}
+            </h2>
+          </div>
         </div>
 
-        <div style={{ margin: '14px 0', padding: '16px', background: 'rgba(212,175,55,0.15)', borderRadius: '12px', border: '1px solid var(--gold-primary)' }}>
-          {endReason === 'ZERO_CARD_AUTOMATIC_VICTORY' ? (
-            <p style={{ margin: 0, fontSize: '1.25rem', color: 'var(--gold-light)', fontWeight: 800 }}>
-              🎉 {winners[0]?.displayName} eliminated all their cards and won the game immediately!
-            </p>
-          ) : isTie ? (
-            <p style={{ margin: 0, fontSize: '1.25rem', color: 'var(--gold-light)', fontWeight: 800 }}>
-              🤝 It&apos;s a Draw! Tied with {scoreBoard[0]?.score} points: {winners.map((w) => w.displayName).join(', ')}
-            </p>
-          ) : (
-            <p style={{ margin: 0, fontSize: '1.25rem', color: 'var(--gold-light)', fontWeight: 800 }}>
-              👑 Winner: {winners[0]?.displayName} with {scoreBoard[0]?.score} points!
-            </p>
-          )}
-        </div>
+        {/* Scrollable Body */}
+        <div className="profile-modal-body">
+          {/* Winner Banner */}
+          <div
+            style={{
+              margin: '0 0 12px',
+              padding: '12px 14px',
+              background: 'linear-gradient(135deg, rgba(217, 119, 6, 0.2) 0%, rgba(245, 158, 11, 0.1) 100%)',
+              borderRadius: 14,
+              border: '1.5px solid rgba(245, 158, 11, 0.4)',
+              textAlign: 'center',
+            }}
+          >
+            {endReason === 'ZERO_CARD_AUTOMATIC_VICTORY' ? (
+              <p style={{ margin: 0, fontSize: '1rem', color: '#fef08a', fontWeight: 800 }}>
+                🎉 {winners[0]?.displayName} eliminated all cards and won immediately!
+              </p>
+            ) : isTie ? (
+              <p style={{ margin: 0, fontSize: '1rem', color: '#fef08a', fontWeight: 800 }}>
+                🤝 Tied with {scoreBoard[0]?.score} points: {winners.map((w) => w.displayName).join(', ')}
+              </p>
+            ) : (
+              <p style={{ margin: 0, fontSize: '1rem', color: '#fef08a', fontWeight: 800 }}>
+                👑 Winner: {winners[0]?.displayName} with {scoreBoard[0]?.score} points!
+              </p>
+            )}
+          </div>
 
-        <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-          All hidden hands are now revealed. Final scores are based on the sum of remaining card point values (Lowest wins):
-        </p>
+          <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '0 0 10px', textAlign: 'center' }}>
+            All cards revealed! Final scores (lowest points win):
+          </p>
 
-        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', margin: '16px 0' }}>
-          <table className="results-table">
-            <thead>
-              <tr>
-                <th>Player</th>
-                <th>Remaining Cards</th>
-                <th>Total Points</th>
-                <th>Result</th>
-              </tr>
-            </thead>
-            <tbody>
-              {scoreBoard.map(({ player, score, isWinner }) => (
-                <tr key={player.id} className={isWinner ? 'winner-row' : ''}>
-                  <td>
-                    <strong>{player.displayName}</strong>
-                  </td>
-                  <td>
-                    {player.cards.length === 0 ? (
-                      <span style={{ color: '#a7f3d0', fontStyle: 'italic' }}>0 cards remaining</span>
-                    ) : (
-                      <div className="results-cards-cell">
-                        {player.cards.map((c) => (
-                          <CardView key={c.id} card={c} isFaceUp size="small" />
-                        ))}
-                      </div>
-                    )}
-                  </td>
-                  <td style={{ fontSize: '1.1rem', fontWeight: 700 }}>
-                    {endReason === 'ZERO_CARD_AUTOMATIC_VICTORY' && isWinner ? 0 : score} pts
-                  </td>
-                  <td>
-                    {isWinner ? (
-                      <span style={{ color: 'var(--gold-light)', fontWeight: 800 }}>
-                        {isTie ? 'TIED WINNER' : 'WINNER 🏆'}
+          {/* Player Result Cards */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {scoreBoard.map(({ player, score, isWinner }, idx) => (
+              <div
+                key={player.id}
+                style={{
+                  background: isWinner ? 'rgba(37, 99, 235, 0.18)' : 'rgba(15, 23, 42, 0.65)',
+                  border: isWinner ? '1.5px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: 14,
+                  padding: '10px 12px',
+                  boxShadow: isWinner ? '0 4px 14px rgba(37, 99, 235, 0.25)' : 'none',
+                }}
+              >
+                {/* Top Info Bar */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 800, color: isWinner ? '#fbbf24' : '#94a3b8' }}>
+                      {isWinner ? '👑 #1' : `#${idx + 1}`}
+                    </span>
+                    <strong style={{ fontSize: '0.92rem', color: '#ffffff' }}>
+                      {player.displayName}
+                    </strong>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: '0.95rem', fontWeight: 800, color: isWinner ? '#38bdf8' : '#cbd5e1' }}>
+                      {endReason === 'ZERO_CARD_AUTOMATIC_VICTORY' && isWinner ? 0 : score} pts
+                    </span>
+                    {isWinner && (
+                      <span style={{ background: '#2563eb', color: '#ffffff', fontSize: '0.68rem', fontWeight: 700, padding: '2px 8px', borderRadius: 999 }}>
+                        WINNER
                       </span>
-                    ) : (
-                      <span style={{ color: 'var(--text-muted)' }}>-</span>
                     )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </div>
+                </div>
+
+                {/* Cards Mini Strip */}
+                {player.cards.length === 0 ? (
+                  <div style={{ fontSize: '0.76rem', color: '#4ade80', fontStyle: 'italic', padding: '4px 0' }}>
+                    ✓ All cards eliminated (0 cards remaining)
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: 6,
+                      overflowX: 'auto',
+                      padding: '4px 2px 6px',
+                      WebkitOverflowScrolling: 'touch',
+                    }}
+                  >
+                    {player.cards.map((c) => (
+                      <div key={c.id} style={{ flexShrink: 0, transform: 'scale(0.85)', transformOrigin: 'top left', width: 44, height: 64 }}>
+                        <CardView card={c} isFaceUp size="small" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
-          <button className="primary-gold-btn" style={{ width: 'auto', padding: '14px 36px' }} onClick={onPlayAgain} id="play-again-btn">
+        {/* Pinned Footer */}
+        <div className="profile-modal-footer" style={{ justifyContent: 'center' }}>
+          <button
+            type="button"
+            className="primary-gold-btn"
+            style={{ width: '100%', maxWidth: '280px', padding: '12px 24px', fontSize: '0.9rem' }}
+            onClick={onPlayAgain}
+            id="play-again-btn"
+          >
             Start New Game
           </button>
         </div>

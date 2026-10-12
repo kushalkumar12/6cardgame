@@ -584,6 +584,24 @@ io.on('connection', (socket: Socket) => {
       isHost: true,
     };
 
+    // Ensure user exists in SQL users table to prevent FK constraint violation
+    try {
+      const existingUser = await UserRepository.findById(userId);
+      if (!existingUser) {
+        await UserRepository.create({
+          id: userId,
+          username: displayName || `Guest-${userId.slice(-4)}`,
+          avatar: avatar || '🃏',
+          auth_provider: 'guest',
+          referral_code: `REF-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+          referral_count: 0,
+          chips: 1000,
+        });
+      }
+    } catch (e: any) {
+      logger.warn('ROOM', `Could not pre-verify user before room create: ${e.message}`);
+    }
+
     activeRooms[roomCode] = {
       roomCode,
       hostId: userId,

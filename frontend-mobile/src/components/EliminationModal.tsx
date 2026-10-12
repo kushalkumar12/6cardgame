@@ -27,66 +27,90 @@ export const EliminationModal: React.FC<EliminationModalProps> = ({
   };
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal-dialog" style={{ maxWidth: '780px' }}>
-        <h2>Matching-Card Elimination</h2>
+    <div className="modal-backdrop" onClick={onCancel}>
+      <div
+        className="modal-dialog"
+        style={{
+          width: '94%',
+          maxWidth: '390px',
+          padding: '16px 14px',
+          textAlign: 'center',
+          maxHeight: '90vh',
+          overflowY: 'auto',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 style={{ fontSize: '1.15rem', margin: '0 0 10px', color: '#ffffff' }}>Matching-Card Elimination</h2>
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20, margin: '16px 0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, margin: '10px 0', background: 'rgba(15, 23, 42, 0.6)', padding: '10px 12px', borderRadius: 12 }}>
           <div>
-            <span style={{ fontSize: '0.8rem', color: 'var(--gold-light)', display: 'block', marginBottom: 4 }}>
-              Target Discard Value
+            <span style={{ fontSize: '0.72rem', color: '#94a3b8', display: 'block', marginBottom: 2 }}>
+              Target Discard
             </span>
             <CardView card={topDiscard} isFaceUp size="small" />
           </div>
-          <div style={{ textAlign: 'left', maxWidth: '420px' }}>
-            <p style={{ margin: 0, fontSize: '1.05rem', color: 'var(--gold-light)', fontWeight: 700 }}>
+          <div style={{ textAlign: 'left' }}>
+            <p style={{ margin: 0, fontSize: '0.96rem', color: '#38bdf8', fontWeight: 800 }}>
               Target: {topDiscard.pointValue} Points
             </p>
-            <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-              (Matches {topDiscard.pointValue} pts across any suit or rank)
+            <p style={{ margin: '2px 0 0', fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+              (Matches {topDiscard.pointValue} pts across any suit/rank)
             </p>
           </div>
         </div>
 
-        <p style={{ color: '#fca5a5', fontSize: '0.88rem', background: 'rgba(225,29,72,0.15)', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(225,29,72,0.3)', margin: '12px auto', maxWidth: '600px' }}>
-          ⚠️ <strong>All-or-Nothing Rule:</strong> If all selected cards match, they are permanently eliminated. If ANY card does not match, NONE are eliminated and you receive 1 penalty card.
+        <div style={{ color: '#fca5a5', fontSize: '0.76rem', background: 'rgba(225,29,72,0.15)', padding: '8px 10px', borderRadius: '8px', border: '1px solid rgba(225,29,72,0.3)', margin: '8px 0', lineHeight: 1.4 }}>
+          ⚠️ <strong>All-or-Nothing Rule:</strong> All selected cards must match the discard point value. Any mistake deals 1 penalty card.
+        </div>
+
+        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '10px 0 6px' }}>
+          Tap the cards in your hand you believe match:
         </p>
 
-        <p style={{ fontSize: '0.9rem', color: 'var(--text-main)', marginTop: 14 }}>
-          Select the card positions in your hand that you believe match:
-        </p>
-
-        <div className="player-cards-grid" style={{ margin: '16px 0' }}>
+        {/* 3-COLUMN COMPACT MOBILE HAND GRID */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: '8px 10px',
+            maxWidth: '260px',
+            margin: '8px auto 14px',
+            justifyItems: 'center',
+          }}
+        >
           {activePlayer.cards.map((c, idx) => {
             const isSelected = selectedIndices.includes(idx);
             return (
-              <div key={c.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Pos {idx + 1}</span>
+              <div key={c.id || idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                <span style={{ fontSize: '0.72rem', color: isSelected ? '#38bdf8' : 'var(--text-muted)', fontWeight: isSelected ? 700 : 500 }}>
+                  Pos {idx + 1}
+                </span>
                 <CardView
                   card={null}
                   isFaceUp={false}
                   interactive
+                  size="small"
                   selected={isSelected}
                   onClick={() => toggleSelect(idx)}
-                  label={`Your card at position ${idx + 1}`}
+                  label={`Position ${idx + 1}`}
                 />
               </div>
             );
           })}
         </div>
 
-        <div style={{ display: 'flex', gap: 14, justifyContent: 'center', marginTop: 20 }}>
-          <button className="secondary-ghost-btn" onClick={onCancel}>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 10 }}>
+          <button className="secondary-ghost-btn" style={{ padding: '8px 16px', fontSize: '0.82rem' }} onClick={onCancel}>
             Cancel
           </button>
           <button
             className="action-btn action-btn-eliminate"
-            style={{ width: 'auto', padding: '12px 28px' }}
+            style={{ width: 'auto', padding: '8px 20px', fontSize: '0.84rem' }}
             disabled={selectedIndices.length === 0}
             onClick={() => onAttempt(selectedIndices)}
             id="attempt-elimination-btn"
           >
-            Attempt Elimination ({selectedIndices.length} Selected)
+            Eliminate ({selectedIndices.length})
           </button>
         </div>
       </div>

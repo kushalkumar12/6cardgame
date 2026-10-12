@@ -67,6 +67,16 @@ class SoundManager {
     return this.ctx;
   }
 
+  // Universal play method (maps to specific sound effects)
+  public play(type?: string): void {
+    if (!type || type === 'click') this.playClick();
+    else if (type === 'deal' || type === 'draw') this.playCardDraw();
+    else if (type === 'victory') this.playVictory();
+    else if (type === 'eliminate') this.playEliminate();
+    else if (type === 'cardFlip' || type === 'flip') this.playCardFlip();
+    else this.playClick();
+  }
+
   // ========================================================
   // 1. TACTILE HAPTIC UI CLICK
   // Soft, satisfying acoustic tap (no harsh sine beeps)

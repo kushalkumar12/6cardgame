@@ -10,6 +10,7 @@ For complete and detailed technical references, consult the dedicated guides bel
 
 | Documentation | Location | Contents & Purpose |
 | :--- | :--- | :--- |
+| **Mobile Screens & Test Report** | [docs/MOBILE_APP_SCREENS_AND_TEST_REPORT.md](docs/MOBILE_APP_SCREENS_AND_TEST_REPORT.md) | Comprehensive audit report documenting all 21 mobile screens, modal popups, UI/UX fixes, and embedded screenshot artifacts. |
 | **Mobile Frontend Documentation** | [frontend-mobile/README.md](frontend-mobile/README.md) | Mobile-specific React 19 architecture, synthesized Web Audio sound engine, Gemini gradient active borders, mobile multiplayer rooms, avatar customization, and 100dvh viewport layout. |
 | **Desktop Frontend Documentation** | [frontend/README.md](frontend/README.md) | Desktop React 19 architecture, component hierarchy, visual design system, state machine, and Vercel edge deployment. |
 | **Backend Documentation** | [backend/README.md](backend/README.md) | Node.js + Express + Socket.IO server, profiles (`dev`/`test`/`prod`), PostgreSQL schema, REST APIs, and WebSocket events supporting both Desktop and Mobile frontends. |

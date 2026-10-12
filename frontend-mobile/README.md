@@ -2,6 +2,8 @@
 
 This document provides comprehensive documentation for the **Six Cards Mobile Frontend**, engineered specifically for mobile device viewports (smartphones and handheld browsers) with a luxury dark sapphire casino aesthetic, zero-latency Web Audio sound engine, and full real-time multiplayer capabilities.
 
+> 📸 **Visual Test Documentation**: For screenshots of every single screen, modal, and popup alongside UX bugfix logs, refer to [Mobile App Screens & Test Report](../docs/MOBILE_APP_SCREENS_AND_TEST_REPORT.md).
+
 ---
 
 ## 1. Technology Stack

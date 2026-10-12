@@ -60,39 +60,24 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div
-        className="modal-dialog"
+        className="profile-modal-card"
         style={{
-          width: '92%',
-          maxWidth: '430px',
-          margin: 'auto',
-          padding: '20px 18px',
-          boxSizing: 'border-box',
-          maxHeight: '90vh',
-          overflowY: 'auto',
-          animation: 'fadeIn 0.2s ease',
+          height: 'min(82vh, 560px)',
+          minHeight: '460px',
         }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: 16,
-            borderBottom: '1px solid rgba(255,255,255,0.08)',
-            paddingBottom: 12,
-          }}
-        >
+        <div className="profile-modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: '1.4rem' }}>🌐</span>
-            <h2 style={{ margin: 0, fontSize: '1.18rem', color: '#ffffff' }}>Online Multiplayer</h2>
+            <span style={{ fontSize: '1.3rem' }}>🌐</span>
+            <h2 style={{ margin: 0, fontSize: '1.15rem', color: '#ffffff', fontWeight: 800 }}>Online Multiplayer</h2>
           </div>
           <button
             type="button"
             className="secondary-ghost-btn"
             onClick={onClose}
-            style={{ padding: '4px 10px', fontSize: '0.82rem' }}
+            style={{ padding: '5px 12px', fontSize: '0.8rem' }}
           >
             ✕ Close
           </button>
@@ -104,11 +89,12 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
             display: 'grid',
             gridTemplateColumns: '1fr 1fr 1fr',
             gap: 6,
-            background: 'rgba(15, 23, 42, 0.7)',
+            background: 'rgba(15, 23, 42, 0.75)',
             padding: 4,
             borderRadius: 12,
-            marginBottom: 18,
-            border: '1px solid rgba(255,255,255,0.06)',
+            margin: '12px 16px 0',
+            border: '1px solid rgba(255,255,255,0.08)',
+            flexShrink: 0,
           }}
         >
           <button
@@ -154,9 +140,11 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
           </button>
         </div>
 
-        {/* TAB 1: CREATE ROOM */}
-        {tab === 'create' && (
-          <div>
+        {/* Scrollable Tab Body */}
+        <div className="profile-modal-body">
+          {/* TAB 1: CREATE ROOM */}
+          {tab === 'create' && (
+            <div>
             <div
               style={{
                 background: 'rgba(0, 0, 0, 0.25)',
@@ -399,6 +387,7 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
             )}
           </div>
         )}
+        </div>
       </div>
     </div>
   );

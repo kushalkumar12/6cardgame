@@ -651,6 +651,9 @@ export class GameEngine {
    */
   public startElimination(): void {
     if (this.state.gameOver) throw new Error('Game is already over.');
+    if (this.state.currentPhase === 'SELECT_ELIMINATION') {
+      return;
+    }
     if (this.state.currentPhase !== 'TURN_START') {
       throw new Error(`Cannot start elimination during phase: ${this.state.currentPhase}`);
     }
@@ -666,7 +669,7 @@ export class GameEngine {
    */
   public cancelElimination(): void {
     if (this.state.currentPhase !== 'SELECT_ELIMINATION') {
-      throw new Error('Not in elimination selection phase.');
+      return;
     }
     this.state.currentPhase = 'TURN_START';
     this.state.selectedEliminationIndices = [];

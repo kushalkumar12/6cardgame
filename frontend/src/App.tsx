@@ -164,11 +164,13 @@ export const App: React.FC = () => {
     });
 
     socket.on('game_started', ({ state, myGamePlayerId }: any) => {
+      engine.loadState(state);
       setGameState(state);
       setMyGamePlayerId(myGamePlayerId);
     });
 
     socket.on('room_state_update', ({ state }: any) => {
+      engine.loadState(state);
       setGameState(state);
     });
 
@@ -910,8 +912,22 @@ export const App: React.FC = () => {
                     disabled={selectedMode === 'system' && gameState.currentPlayerIndex === 1}
                     onClick={() => {
                       setIsReplacingFromDiscardMode(false);
-                      engine.startElimination();
-                      syncEngineState();
+                      if (activeRoom) {
+                        setGameState((prev) => ({
+                          ...prev,
+                          currentPhase: 'SELECT_ELIMINATION',
+                          selectedEliminationIndices: [],
+                        }));
+                      } else {
+                        try {
+                          if (engine.getState().currentPhase === 'TURN_START') {
+                            engine.startElimination();
+                            syncEngineState();
+                          }
+                        } catch (err: any) {
+                          console.warn('Cannot start elimination:', err);
+                        }
+                      }
                     }}
                     id="start-elimination-btn"
                   >
@@ -969,8 +985,16 @@ export const App: React.FC = () => {
                     type="button"
                     className="action-btn action-btn-draw"
                     onClick={() => {
-                      engine.startAbility7();
-                      syncEngineState();
+                      if (activeRoom) {
+                        setGameState((prev) => ({ ...prev, currentPhase: 'SPECIAL_ABILITY_7' }));
+                      } else {
+                        try {
+                          engine.startAbility7();
+                          syncEngineState();
+                        } catch (err: any) {
+                          console.warn('Cannot start ability 7:', err);
+                        }
+                      }
                     }}
                     id="use-ability-7-btn"
                   >
@@ -983,8 +1007,16 @@ export const App: React.FC = () => {
                     type="button"
                     className="action-btn action-btn-draw"
                     onClick={() => {
-                      engine.startAbility8();
-                      syncEngineState();
+                      if (activeRoom) {
+                        setGameState((prev) => ({ ...prev, currentPhase: 'SPECIAL_ABILITY_8' }));
+                      } else {
+                        try {
+                          engine.startAbility8();
+                          syncEngineState();
+                        } catch (err: any) {
+                          console.warn('Cannot start ability 8:', err);
+                        }
+                      }
                     }}
                     id="use-ability-8-btn"
                   >
@@ -997,8 +1029,16 @@ export const App: React.FC = () => {
                     type="button"
                     className="action-btn action-btn-draw"
                     onClick={() => {
-                      engine.startAbilityJack();
-                      syncEngineState();
+                      if (activeRoom) {
+                        setGameState((prev) => ({ ...prev, currentPhase: 'SPECIAL_ABILITY_JACK' }));
+                      } else {
+                        try {
+                          engine.startAbilityJack();
+                          syncEngineState();
+                        } catch (err: any) {
+                          console.warn('Cannot start ability Jack:', err);
+                        }
+                      }
                     }}
                     id="use-ability-jack-btn"
                   >
@@ -1158,11 +1198,23 @@ export const App: React.FC = () => {
             }
           }}
           onCancel={() => {
-            const state = engine.getState();
-            state.currentPhase = 'CARD_DRAWN';
-            state.jackSelection = null;
-            engine.loadState(state);
-            syncEngineState();
+            if (activeRoom) {
+              setGameState((prev) => ({
+                ...prev,
+                currentPhase: 'CARD_DRAWN',
+                jackSelection: null,
+              }));
+            } else {
+              try {
+                const state = engine.getState();
+                state.currentPhase = 'CARD_DRAWN';
+                state.jackSelection = null;
+                engine.loadState(state);
+                syncEngineState();
+              } catch (err: any) {
+                console.warn('Cannot cancel Jack selection:', err);
+              }
+            }
           }}
         />
       )}
@@ -1180,13 +1232,29 @@ export const App: React.FC = () => {
                 payload: { indices: selectedIndices },
               });
             } else {
-              engine.attemptElimination(selectedIndices);
-              syncEngineState();
+              try {
+                engine.attemptElimination(selectedIndices);
+                syncEngineState();
+              } catch (err: any) {
+                console.warn('Cannot attempt elimination:', err);
+              }
             }
           }}
           onCancel={() => {
-            engine.cancelElimination();
-            syncEngineState();
+            if (activeRoom) {
+              setGameState((prev) => ({
+                ...prev,
+                currentPhase: 'TURN_START',
+                selectedEliminationIndices: [],
+              }));
+            } else {
+              try {
+                engine.cancelElimination();
+                syncEngineState();
+              } catch (err: any) {
+                console.warn('Cannot cancel elimination:', err);
+              }
+            }
           }}
         />
       )}
@@ -1217,8 +1285,12 @@ export const App: React.FC = () => {
                 actionType: 'DECLARE_VICTORY',
               });
             } else {
-              engine.declareVictory();
-              syncEngineState();
+              try {
+                engine.declareVictory();
+                syncEngineState();
+              } catch (err: any) {
+                console.warn('Cannot declare victory:', err);
+              }
             }
           }}
           onCancel={() => setShowDeclareVictoryConfirm(false)}
